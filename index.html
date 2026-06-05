@@ -9,19 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="BuscAuto">
 <meta name="mobile-web-app-capable" content="yes">
 <title>BuscAuto</title>
-<link rel="apple-touch-icon" id="pwaIcon" href="">
-<link rel="icon" type="image/png" id="favIcon" href="">
-<script>
-(function(){
-  var b64='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';
-  var bin=atob(b64),arr=new Uint8Array(bin.length);
-  for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-  var blob=new Blob([arr],{type:'image/png'});
-  var url=URL.createObjectURL(blob);
-  document.getElementById('pwaIcon').href=url;
-  document.getElementById('favIcon').href=url;
-})();
-</script>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -329,36 +318,59 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 <!-- SPLASH -->
 <div id="splash">
   <div class="splash-icon-wrap">
-    <!-- Compass ring -->
-    <svg class="splash-compass-ring" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%">
-      <circle cx="80" cy="80" r="76" stroke="#4a8c3f" stroke-width="2" opacity=".5"/>
-      <circle cx="80" cy="80" r="68" stroke="#4a8c3f" stroke-width="1" opacity=".2"/>
-      <line x1="80" y1="4" x2="80" y2="18" stroke="#a8d18a" stroke-width="2.5" stroke-linecap="round"/>
-      <line x1="80" y1="142" x2="80" y2="156" stroke="#7ec85a" stroke-width="2" stroke-linecap="round"/>
-      <line x1="4" y1="80" x2="18" y2="80" stroke="#7ec85a" stroke-width="2" stroke-linecap="round"/>
-      <line x1="142" y1="80" x2="156" y2="80" stroke="#7ec85a" stroke-width="2" stroke-linecap="round"/>
-      <text x="75.5" y="30" font-family="DM Mono" font-size="12" fill="#cc2244" font-weight="700">N</text>
-      <text x="75.5" y="154" font-family="DM Mono" font-size="11" fill="#7ec85a" opacity=".7">S</text>
-      <text x="144" y="84" font-family="DM Mono" font-size="11" fill="#7ec85a" opacity=".7">E</text>
-      <text x="6" y="84" font-family="DM Mono" font-size="11" fill="#7ec85a" opacity=".7">O</text>
-      <!-- needle -->
-      <polygon points="80,36 84,66 80,62 76,66" fill="#cc2244"/>
-      <polygon points="80,124 76,94 80,98 84,94" fill="#4a8c3f" opacity=".7"/>
-      <circle cx="80" cy="80" r="5" fill="#a8d18a"/>
+    <!-- Compass ring — jitters like a real compass -->
+    <svg class="splash-compass-ring" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%">
+      <!-- outer ring -->
+      <circle cx="80" cy="80" r="76" stroke="#a8c878" stroke-width="2.5" fill="none"/>
+      <circle cx="80" cy="80" r="70" stroke="#7aac50" stroke-width="1" fill="none" opacity=".5"/>
+      <!-- cardinal ticks -->
+      <line x1="80" y1="3"   x2="80" y2="16"  stroke="#c8e898" stroke-width="3"   stroke-linecap="round"/>
+      <line x1="80" y1="144" x2="80" y2="157" stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <line x1="3"  y1="80"  x2="16" y2="80"  stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <line x1="144" y1="80" x2="157" y2="80" stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <!-- N S E O labels -->
+      <text x="80" y="32" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="700" fill="#cc2244">N</text>
+      <text x="80" y="154" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">S</text>
+      <text x="152" y="85" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">E</text>
+      <text x="8"   y="85" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">O</text>
+      <!-- needle N (burgundy) -->
+      <polygon points="80,38 84.5,68 80,64 75.5,68" fill="#cc2244"/>
+      <!-- needle S (dark pistachio) -->
+      <polygon points="80,122 75.5,92 80,96 84.5,92" fill="#5a8c30" opacity=".8"/>
+      <!-- pivot -->
+      <circle cx="80" cy="80" r="4.5" fill="#c8e898"/>
     </svg>
-    <!-- Wheel -->
-    <svg class="splash-wheel-inner" viewBox="0 0 116 116" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:22px;left:22px;width:calc(100% - 44px);height:calc(100% - 44px)">
-      <circle cx="58" cy="58" r="54" stroke="#cc2244" stroke-width="6"/>
-      <circle cx="58" cy="58" r="18" stroke="#cc2244" stroke-width="5" fill="#0f1a10"/>
-      <line x1="58" y1="4" x2="58" y2="40" stroke="#cc2244" stroke-width="4" stroke-linecap="round"/>
-      <line x1="58" y1="76" x2="58" y2="112" stroke="#cc2244" stroke-width="4" stroke-linecap="round"/>
-      <line x1="4" y1="58" x2="40" y2="58" stroke="#cc2244" stroke-width="4" stroke-linecap="round"/>
-      <line x1="76" y1="58" x2="112" y2="58" stroke="#cc2244" stroke-width="4" stroke-linecap="round"/>
-      <line x1="14" y1="14" x2="40" y2="40" stroke="#cc2244" stroke-width="3" stroke-linecap="round" opacity=".65"/>
-      <line x1="76" y1="76" x2="102" y2="102" stroke="#cc2244" stroke-width="3" stroke-linecap="round" opacity=".65"/>
-      <line x1="102" y1="14" x2="76" y2="40" stroke="#cc2244" stroke-width="3" stroke-linecap="round" opacity=".65"/>
-      <line x1="14" y1="102" x2="40" y2="76" stroke="#cc2244" stroke-width="3" stroke-linecap="round" opacity=".65"/>
-      <circle cx="58" cy="58" r="7" fill="#cc2244"/>
+
+    <!-- Tyre wheel — spins steadily -->
+    <svg class="splash-wheel-inner" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"
+         style="position:absolute;top:25px;left:25px;width:calc(100% - 50px);height:calc(100% - 50px)">
+      <!-- rubber tyre (thick dark ring) -->
+      <circle cx="55" cy="55" r="52" fill="#1a0a0c"/>
+      <circle cx="55" cy="55" r="52" fill="none" stroke="#8a1e30" stroke-width="1.5"/>
+      <circle cx="55" cy="55" r="39" fill="none" stroke="#8a1e30" stroke-width="1"/>
+      <!-- tyre tread marks (short arcs around circumference) -->
+      <circle cx="55" cy="55" r="45.5" fill="none" stroke="#2e1018" stroke-width="11"
+              stroke-dasharray="8 6.2" stroke-linecap="round"/>
+      <!-- alloy rim background -->
+      <circle cx="55" cy="55" r="38" fill="#6b1828"/>
+      <!-- 5 alloy spokes -->
+      <g stroke="#a83050" stroke-linecap="round">
+        <line x1="55" y1="20" x2="55" y2="44" stroke-width="6"/>
+        <line x1="55" y1="20" x2="55" y2="44" stroke="#c04060" stroke-width="3"/>
+        <line x1="87.2" y1="35.5" x2="73.4" y2="46.8" stroke-width="6"/>
+        <line x1="87.2" y1="35.5" x2="73.4" y2="46.8" stroke="#c04060" stroke-width="3"/>
+        <line x1="75.6" y1="75.4" x2="64.8" y2="62.5" stroke-width="6"/>
+        <line x1="75.6" y1="75.4" x2="64.8" y2="62.5" stroke="#c04060" stroke-width="3"/>
+        <line x1="34.4" y1="75.4" x2="45.2" y2="62.5" stroke-width="6"/>
+        <line x1="34.4" y1="75.4" x2="45.2" y2="62.5" stroke="#c04060" stroke-width="3"/>
+        <line x1="22.8" y1="35.5" x2="36.6" y2="46.8" stroke-width="6"/>
+        <line x1="22.8" y1="35.5" x2="36.6" y2="46.8" stroke="#c04060" stroke-width="3"/>
+      </g>
+      <!-- spoke gaps (dark between spokes) -->
+      <!-- hub cap -->
+      <circle cx="55" cy="55" r="14" fill="#4a1020"/>
+      <circle cx="55" cy="55" r="9"  fill="#8a2030"/>
+      <circle cx="55" cy="55" r="4"  fill="#c8e898"/>
     </svg>
   </div>
 
