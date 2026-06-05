@@ -68,7 +68,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-se
 /* wheel spins steadily */
 .splash-wheel-inner {
   position: absolute;
-  inset: 22px;
+  top: 22px; left: 22px;
+  width: calc(100% - 44px);
+  height: calc(100% - 44px);
   animation: wspin 1.8s linear infinite;
 }
 @keyframes wspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -248,11 +250,11 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 
 /* compass */
 .compass-wrap { display: flex; justify-content: center; padding: 10px 0; }
-.compass { width: 110px; height: 110px; border-radius: 50%; border: 1px solid var(--border); background: radial-gradient(circle at 40% 35%, var(--surface2), var(--surface)); position: relative; }
-.cn { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--green2); }
-.compass-needle { position: absolute; top: 50%; left: 50%; width: 2px; height: 38px; margin-left: -1px; margin-top: -38px; transform-origin: bottom center; transition: transform 0.3s ease; }
-.nn { width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:30px solid var(--red2);position:absolute;bottom:0;left:-4px; }
-.ns { width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:16px solid var(--green3);position:absolute;top:0;left:-3px; }
+.compass { width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--border); background: radial-gradient(circle at 50% 50%, var(--surface2), var(--surface)); position: relative; }
+.cn { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 0.65rem; font-weight: 600; color: var(--red2); z-index: 2; }
+.compass-needle { position: absolute; top: 50%; left: 50%; width: 2px; height: 30px; margin-left: -1px; margin-top: -30px; transform-origin: bottom center; transition: transform 0.3s ease; z-index: 1; }
+.nn { width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:22px solid var(--red2);position:absolute;bottom:0;left:-4px; }
+.ns { width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:14px solid var(--green3);position:absolute;top:0;left:-3px; }
 
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; }
@@ -332,7 +334,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
       <circle cx="80" cy="80" r="5" fill="#a8d18a"/>
     </svg>
     <!-- Wheel -->
-    <svg class="splash-wheel-inner" viewBox="0 0 116 116" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:22px;width:calc(100%-44px);height:calc(100%-44px)">
+    <svg class="splash-wheel-inner" viewBox="0 0 116 116" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:22px;left:22px;width:calc(100% - 44px);height:calc(100% - 44px)">
       <circle cx="58" cy="58" r="54" stroke="#cc2244" stroke-width="6"/>
       <circle cx="58" cy="58" r="18" stroke="#cc2244" stroke-width="5" fill="#0f1a10"/>
       <line x1="58" y1="4" x2="58" y2="40" stroke="#cc2244" stroke-width="4" stroke-linecap="round"/>
@@ -900,21 +902,28 @@ function drawPath(id='pathCanvas', pts=null) {
   const canvas=document.getElementById(id); if(!canvas) return;
   const points=pts||S.pathPoints;
   const ctx=canvas.getContext('2d');
-  const W=canvas.offsetWidth||360;
-  canvas.width=W;
-  ctx.fillStyle='#0f1a10'; ctx.fillRect(0,0,W,canvas.height);
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.offsetWidth||360;
+  const cssH=canvas.getBoundingClientRect().height||190;
+  canvas.width=Math.round(cssW*dpr);
+  canvas.height=Math.round(cssH*dpr);
+  canvas.style.width=cssW+'px';
+  canvas.style.height=cssH+'px';
+  ctx.scale(dpr,dpr);
+  const W=cssW, H=cssH;
+  ctx.fillStyle='#0f1a10'; ctx.fillRect(0,0,W,H);
   ctx.strokeStyle='rgba(126,200,90,0.05)'; ctx.lineWidth=1;
-  for(let x=0;x<W;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
-  for(let y=0;y<canvas.height;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(let x=0;x<W;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   if (points.length<2) {
     ctx.fillStyle='#4a5c48'; ctx.font=`${W*0.036}px 'DM Mono',monospace`;
-    ctx.textAlign='center'; ctx.fillText('Inicia el trayecto para ver el recorrido',W/2,canvas.height/2);
+    ctx.textAlign='center'; ctx.fillText('Inicia el trayecto para ver el recorrido',W/2,H/2);
     return;
   }
   let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
   points.forEach(p=>{mnX=Math.min(mnX,p.x);mxX=Math.max(mxX,p.x);mnY=Math.min(mnY,p.y);mxY=Math.max(mxY,p.y);});
   const pad=32,rx=mxX-mnX||1,ry=mxY-mnY||1;
-  const sc=Math.min((W-pad*2)/rx,(canvas.height-pad*2)/ry);
+  const sc=Math.min((W-pad*2)/rx,(H-pad*2)/ry);
   const cx=p=>pad+(p.x-mnX)*sc, cy=p=>pad+(p.y-mnY)*sc;
   ctx.beginPath(); ctx.strokeStyle='rgba(204,34,68,0.25)'; ctx.lineWidth=5; ctx.lineJoin='round';
   points.forEach((p,i)=>i===0?ctx.moveTo(cx(p),cy(p)):ctx.lineTo(cx(p),cy(p))); ctx.stroke();
