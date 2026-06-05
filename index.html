@@ -11,13 +11,15 @@
 <title>BuscAuto</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:        #080e09;
-  --surface:   #0f1a10;
-  --surface2:  #162018;
-  --surface3:  #1c2a1f;
+  --bg:        #0e0608;
+  --surface:   #1a0a0e;
+  --surface2:  #240d12;
+  --surface3:  #2e1018;
   --red:       #cc2244;
   --red2:      #e03358;
   --red-dim:   rgba(204,34,68,0.15);
@@ -39,10 +41,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-se
 /* ══ SPLASH ══════════════════════════════════════════════ */
 #splash {
   position: fixed; inset: 0; z-index: 999;
-  background: var(--bg);
+  background: #0e0608;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 40px;                       /* icon above, text below */
+  gap: 40px;
   transition: opacity 0.6s ease;
 }
 #splash.hide { opacity: 0; pointer-events: none; }
@@ -128,7 +130,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
   display: none; align-items: center; gap: 6px;
   background: var(--green-dim); border: 1px solid rgba(126,200,90,0.25);
   border-radius: 20px; padding: 5px 12px;
-  font-size: 0.72rem; color: var(--green2);
+  font-size: 0.82rem; color: var(--green2);
   font-family: 'DM Mono', monospace;
 }
 .saved-pill.show { display: flex; }
@@ -137,7 +139,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .tab {
   flex: 1; background: none; border: none;
   padding: 14px 4px 12px; color: var(--text3);
-  font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600;
+  font-family: 'Outfit', sans-serif; font-size: 0.96rem; font-weight: 600;
   letter-spacing: 0.03em; cursor: pointer;
   border-bottom: 2px solid transparent; transition: all 0.2s;
   display: flex; align-items: center; justify-content: center; gap: 7px;
@@ -162,7 +164,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
   border-radius: 16px; padding: 18px; margin-bottom: 14px;
 }
 .card-label {
-  font-size: 0.68rem; font-family: 'DM Mono', monospace;
+  font-size: 0.78rem; font-family: 'DM Mono', monospace;
   letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--text3); margin-bottom: 14px;
   display: flex; align-items: center; gap: 8px;
@@ -175,8 +177,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
   padding: 11px 0; border-bottom: 1px solid var(--border2);
 }
 .data-row:last-child { border-bottom: none; padding-bottom: 0; }
-.data-key { font-size: 0.84rem; color: var(--text2); }
-.data-val { font-size: 0.84rem; color: var(--text); text-align: right; font-family: 'DM Mono', monospace; max-width: 62%; word-break: break-all; }
+.data-key { font-size: 0.94rem; color: var(--text2); }
+.data-val { font-size: 0.94rem; color: var(--text); text-align: right; font-family: 'DM Mono', monospace; max-width: 62%; word-break: break-all; }
 
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text3); margin-right: 6px; vertical-align: middle; }
 .dot.ok  { background: var(--green); box-shadow: 0 0 6px var(--green); }
@@ -202,7 +204,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 }
 .photo-zone:not(.has-photo) .photo-overlay { opacity: 1; }
 .photo-zone.has-photo:active .photo-overlay { opacity: 1; }
-.photo-hint { font-size: 0.78rem; color: var(--green3); }
+.photo-hint { font-size: 0.9rem; color: var(--green3); }
 #photoInput { display: none; }
 
 .exif-badge {
@@ -216,7 +218,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 /* ══ BUTTONS ══════════════════════════════════════════════ */
 .btn {
   width: 100%; padding: 16px; border: none; border-radius: 12px;
-  font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 700;
+  font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700;
   letter-spacing: 0.02em; cursor: pointer; transition: all 0.18s;
   display: flex; align-items: center; justify-content: center; gap: 9px;
 }
@@ -232,12 +234,12 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 
 /* ══ PEDOMETER ════════════════════════════════════════════ */
 .steps-big { text-align: center; padding: 14px 0 8px; }
-.steps-num { font-size: 5rem; line-height: 1; font-weight: 800; color: var(--green2); }
-.steps-unit { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
+.steps-num { font-size: 5.5rem; line-height: 1; font-weight: 800; color: var(--green2); }
+.steps-unit { font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .metric-box { background: var(--surface2); border-radius: 10px; padding: 14px; text-align: center; }
 .metric-val { font-size: 1.4rem; font-weight: 700; color: var(--green2); }
-.metric-unit { font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-top: 3px; }
+.metric-unit { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-top: 3px; }
 
 .rec-badge { display: none; align-items: center; gap: 7px; background: var(--red-dim); border: 1px solid rgba(204,34,68,0.3); border-radius: 20px; padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--red2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
 .rec-badge.show { display: inline-flex; }
@@ -247,7 +249,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 /* countdown */
 .countdown-bar { display: none; background: var(--surface2); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; align-items: center; justify-content: space-between; }
 .countdown-bar.show { display: flex; }
-.countdown-text { font-size: 0.84rem; color: var(--text2); }
+.countdown-text { font-size: 0.94rem; color: var(--text2); }
 .countdown-num { font-size: 1.2rem; font-weight: 700; color: var(--green2); font-family: 'DM Mono', monospace; }
 
 /* compass */
@@ -259,14 +261,14 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .ns { width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:14px solid var(--green3);position:absolute;top:0;left:-3px; }
 
 /* path canvas */
-.canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; }
+.canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
 #pathCanvas, #savedPathCanvas { width: 100%; display: block; border-radius: 6px; }
 
 /* ══ DIRECTION ════════════════════════════════════════════ */
 .dir-main { display: flex; flex-direction: column; align-items: center; padding: 20px 0 14px; gap: 12px; }
 .dir-arrow-wrap { width: 110px; height: 110px; border-radius: 50%; background: var(--surface2); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; }
 .dir-arrow-inner { transition: transform 0.15s cubic-bezier(.25,.8,.25,1); }
-.dir-dist { font-size: 1.8rem; font-weight: 800; color: var(--green2); }
+.dir-dist { font-size: 2rem; font-weight: 800; color: var(--green2); }
 .dir-label { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; text-align: center; }
 
 .tracking-badge { display: none; align-items: center; gap: 6px; background: var(--green-dim); border: 1px solid rgba(126,200,90,0.3); border-radius: 20px; padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--green2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
@@ -281,7 +283,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .modal-close { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 32px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
 
 /* place name */
-.place-input { width: 100%; padding: 13px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 500; outline: none; transition: border-color 0.2s; margin-top: 10px; }
+.place-input { width: 100%; padding: 13px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 500; outline: none; transition: border-color 0.2s; margin-top: 10px; }
 .place-input:focus { border-color: var(--green3); }
 .place-input::placeholder { color: var(--text3); }
 
@@ -294,21 +296,21 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 /* empty */
 .empty { text-align: center; padding: 50px 16px; }
 .empty-icon { color: var(--text3); margin-bottom: 16px; }
-.empty-txt { font-size: 0.84rem; color: var(--text3); letter-spacing: 0.04em; line-height: 1.8; }
+.empty-txt { font-size: 0.94rem; color: var(--text3); letter-spacing: 0.04em; line-height: 1.8; }
 
 /* maps */
-.maps-link { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; color: var(--text2); text-decoration: none; font-size: 0.88rem; font-weight: 600; transition: all 0.2s; margin-bottom: 10px; }
+.maps-link { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; color: var(--text2); text-decoration: none; font-size: 0.96rem; font-weight: 600; transition: all 0.2s; margin-bottom: 10px; }
 .maps-link:active { border-color: var(--green3); color: var(--green2); }
 
 /* toast */
-.toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 20px; font-size: 0.8rem; color: var(--green2); font-family: 'DM Mono', monospace; opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 300; white-space: nowrap; max-width: 92vw; text-align: center; }
+.toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 20px; font-size: 0.88rem; color: var(--green2); font-family: 'DM Mono', monospace; opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 300; white-space: nowrap; max-width: 92vw; text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* nav */
 .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--surface); border-top: 1px solid var(--border2); display: flex; padding: 8px 0 max(16px, env(safe-area-inset-bottom)); z-index: 200; }
 .nav-btn { flex: 1; background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; cursor: pointer; color: var(--text3); transition: color 0.2s; }
 .nav-btn.active { color: var(--green2); }
-.nav-label { font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.nav-label { font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
 
 .gap { height: 10px; }
 </style>
@@ -386,9 +388,9 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     <div class="perm-icon">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a7 7 0 0 1 7 7c0 5.25-7 13-7 13S5 14.25 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
     </div>
-    <div class="perm-title">Acceso al movimiento</div>
-    <div class="perm-desc">Para registrar el trayecto desde el coche, BuscAuto necesita acceder al sensor de movimiento de tu iPhone.</div>
-    <div class="perm-note">iOS mostrará un aviso de permiso al pulsar "Permitir". Debes aceptarlo para que funcione el podómetro.</div>
+    <div class="perm-title">Permiso de movimiento</div>
+    <div class="perm-desc">BuscAuto necesita acceder al sensor de movimiento para contar pasos y registrar el trayecto desde donde aparques.</div>
+    <div class="perm-note">Solo se te pedirá esta vez. iOS mostrará su propio aviso al tocar "Permitir".</div>
     <button class="btn btn-green" onclick="requestMotionAndStart()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       Permitir y registrar trayecto
@@ -402,7 +404,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 <div class="app">
   <header>
     <div class="header-row">
-      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text3);letter-spacing:.14em;text-transform:uppercase">Localizador</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase">Localizador</div>
       <div class="saved-pill" id="savedPill">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         Coche guardado
@@ -419,7 +421,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Trayecto
     </button>
-    <button class="tab" id="tab-find" onclick="switchTab('find')">
+    <button class="tab" id="tab-buscar" onclick="switchTab('buscar')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       Encontrar
     </button>
@@ -513,7 +515,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Mapa del trayecto
         </div>
-        <div class="canvas-wrap"><canvas id="pathCanvas" height="190"></canvas></div>
+        <div id="mapTrayecto" style="width:100%;height:220px;border-radius:10px;overflow:hidden;background:var(--surface2);"></div>
       </div>
 
       <button class="btn btn-green" id="startPedoBtn" onclick="manualStartPedometer()">
@@ -527,7 +529,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     </div>
 
     <!-- ENCONTRAR -->
-    <div class="section" id="sec-find">
+    <div class="section" id="sec-buscar">
       <div id="noSaved" class="empty">
         <div class="empty-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
         <div class="empty-txt">Sin ubicación guardada.<br>Ve a "Guardar" primero.</div>
@@ -543,7 +545,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
             <div class="no-photo-ph" id="noPhotoPlaceholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Sin foto guardada</div>
           </div>
           <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar (ej: Carrefour Marbella)..." oninput="savePlaceName()">
-          <div style="font-size:0.72rem;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace" id="savedTime"></div>
+          <div style="font-size:0.82rem;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace" id="savedTime"></div>
         </div>
 
         <div class="card">
@@ -582,8 +584,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Trayecto registrado
           </div>
-          <div class="canvas-wrap"><canvas id="savedPathCanvas" height="150"></canvas></div>
-          <div style="font-size:0.75rem;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace" id="savedStepsSummary"></div>
+          <div id="mapSaved" style="width:100%;height:200px;border-radius:10px;overflow:hidden;background:var(--surface2);"></div>
+          <div style="font-size:0.85rem;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace" id="savedStepsSummary"></div>
         </div>
 
         <a id="mapsLink" href="#" target="_blank" class="maps-link">
@@ -609,9 +611,9 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     <span class="nav-label">Trayecto</span>
   </button>
-  <button class="nav-btn" id="nav-find" onclick="switchTab('find')">
+  <button class="nav-btn" id="nav-buscar" onclick="switchTab('buscar')">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <span class="nav-label">Encontrar</span>
+    <span class="nav-label">Buscar</span>
   </button>
 </nav>
 
@@ -627,13 +629,15 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 // ── STATE ─────────────────────────────────────────────────
 const S = {
   photo: null, gps: null, photoExifGps: null,
-  steps: 0, pedoActive: false,
+  steps: 0, pedoActive: false, pedoTriggered: false,
   pedoStartTime: null, pedoTimer: null, pedoAutoStop: null,
   pathPoints: [{x:0,y:0}],
   lastMag: null, lastStep: 0, heading: null,
   tracking: false, trackInterval: null,
   countdownTimer: null, countdownVal: 0,
-  motionGranted: false   // have we already got iOS permission?
+  motionGranted: false,   // set to true after iOS grants permission (also persisted)
+  mapTrayecto: null, mapSaved: null,
+  gpsPathPoints: []  // {lat,lon} real GPS points for map
 };
 
 const PEDO_MS = 3 * 60 * 1000;
@@ -649,16 +653,31 @@ function loadData() {
 
 // ── SPLASH ────────────────────────────────────────────────
 window.addEventListener('load', () => {
+  // Restore motion permission flag
+  try { if (localStorage.getItem('buscauto_motion') === '1') S.motionGranted = true; } catch {}
   setTimeout(() => {
     document.getElementById('splash').classList.add('hide');
-    setTimeout(() => { const s=document.getElementById('splash'); if(s) s.remove(); }, 700);
+    setTimeout(() => {
+      const s=document.getElementById('splash'); if(s) s.remove();
+      // Ask for motion permission once, right after splash — only if not already granted
+      requestMotionPermissionOnce();
+    }, 700);
   }, 2800);
   getGPS();
-  drawPath();
   checkSavedPill();
-  // Restore photo preview if saved
   restorePhotoPreview();
 });
+
+function requestMotionPermissionOnce() {
+  if (S.motionGranted) return; // already granted in a previous session
+  if (typeof DeviceMotionEvent?.requestPermission !== 'function') {
+    // Non-iOS — no permission needed
+    S.motionGranted = true;
+    return;
+  }
+  // iOS: must be triggered from a user gesture — show our one-time prompt
+  showPermPrompt();
+}
 
 function restorePhotoPreview() {
   const data = loadData();
@@ -682,7 +701,7 @@ function switchTab(t) {
   document.getElementById('sec-'+t).classList.add('active');
   document.getElementById('tab-'+t).classList.add('active');
   document.getElementById('nav-'+t).classList.add('active');
-  if (t === 'find') loadFindTab();
+  if (t === 'buscar') loadFindTab();
   if (t === 'pedo') setTimeout(drawPath, 60);
 }
 
@@ -702,7 +721,10 @@ document.getElementById('photoInput').addEventListener('change', e => {
     // Persist photo immediately so it's not lost
     const existing = loadData() || {};
     existing.photo = S.photo;
+    if (!existing.ts) existing.ts = Date.now();
     persist(existing);
+    // If already on buscar tab, refresh it
+    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
     // Trigger pedometer after photo
     afterPhotoUploaded();
   };
@@ -711,13 +733,9 @@ document.getElementById('photoInput').addEventListener('change', e => {
 });
 
 function afterPhotoUploaded() {
-  if (S.pedoActive) return;
-  // Need iOS motion permission — show prompt with countdown
-  if (typeof DeviceMotionEvent?.requestPermission === 'function' && !S.motionGranted) {
-    showPermPrompt();
-  } else {
-    startCountdown();
-  }
+  if (S.pedoActive) stopPedometer();
+  S.pedoTriggered = false;
+  startCountdown(); // permission already granted or non-iOS
 }
 
 // ── iOS MOTION PERMISSION PROMPT ──────────────────────────
@@ -730,12 +748,14 @@ function requestMotionAndStart() {
   DeviceMotionEvent.requestPermission().then(result => {
     if (result === 'granted') {
       S.motionGranted = true;
+      try { localStorage.setItem('buscauto_motion','1'); } catch {}
       startCountdown();
     } else {
       showToast('Permiso denegado. Podómetro no disponible.');
     }
   }).catch(() => {
     S.motionGranted = true;
+    try { localStorage.setItem('buscauto_motion','1'); } catch {}
     startCountdown();
   });
 }
@@ -749,9 +769,9 @@ function dismissPermPrompt() {
 function manualStartPedometer() {
   if (typeof DeviceMotionEvent?.requestPermission === 'function' && !S.motionGranted) {
     DeviceMotionEvent.requestPermission().then(result => {
-      if (result === 'granted') { S.motionGranted = true; startPedometer(); }
+      if (result === 'granted') { S.motionGranted = true; try{localStorage.setItem('buscauto_motion','1');}catch{} startPedometer(); }
       else showToast('Permiso denegado por iOS');
-    }).catch(() => { S.motionGranted = true; startPedometer(); });
+    }).catch(() => { S.motionGranted = true; try{localStorage.setItem('buscauto_motion','1');}catch{} startPedometer(); });
   } else {
     startPedometer();
   }
@@ -824,10 +844,10 @@ function checkSaveReady() {
 
 // ── SAVE (auto) ───────────────────────────────────────────
 function saveLocation() {
-  const gpsData = S.gps || S.photoExifGps; if (!gpsData) return;
   const existing = loadData() || {};
+  const gpsData = S.gps || S.photoExifGps || existing.gps || null;
   const data = {
-    gps: { ...gpsData, source: S.gps?'device':'exif' },
+    gps: gpsData ? { ...gpsData, source: S.gps?'device':(S.photoExifGps?'exif':(existing.gps?.source||'unknown')) } : null,
     photo: S.photo || existing.photo || null,
     ts: Date.now(),
     placeName: existing.placeName || '',
@@ -836,8 +856,9 @@ function saveLocation() {
   persist(data);
   checkSavedPill();
   showToast('Ubicación guardada automáticamente');
+  if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
   // Start walking tracker — same behaviour as the old save button
-  if (!S.pedoActive) afterPhotoUploaded();
+  if (!S.pedoActive && !S.pedoTriggered) { S.pedoTriggered = true; afterPhotoUploaded(); }
 }
 
 // ── PEDOMETER ─────────────────────────────────────────────
@@ -847,6 +868,7 @@ function startPedometer() {
   S.steps=0; S.pedoActive=true;
   S.pedoStartTime=Date.now();
   S.pathPoints=[{x:0,y:0}];
+  S.gpsPathPoints=[];
   S.lastMag=null; S.lastStep=0;
 
   document.getElementById('stepCount').textContent='0';
@@ -860,14 +882,15 @@ function startPedometer() {
   window.addEventListener('deviceorientation', onOrientation);
   S.pedoTimer = setInterval(updateTime, 1000);
   S.pedoAutoStop = setTimeout(stopPedometer, PEDO_MS);
-  drawPath();
+  // init map
+  initTrayectoMap();
   showToast('Trayecto iniciado · 3 min');
 }
 
 function stopPedometer() {
   clearTimeout(S.pedoAutoStop);
   clearInterval(S.pedoTimer);
-  S.pedoActive=false;
+  S.pedoActive = false; S.pedoTriggered = false;
   window.removeEventListener('devicemotion', onMotion);
   window.removeEventListener('deviceorientation', onOrientation);
   document.getElementById('recBadge').classList.remove('show');
@@ -877,7 +900,7 @@ function stopPedometer() {
   if (S.steps > 0) {
     const existing = loadData();
     if (existing) {
-      existing.route = { points:S.pathPoints, steps:S.steps, distMeters:s2m(S.steps) };
+      existing.route = { points:S.pathPoints, steps:S.steps, distMeters:s2m(S.steps), gpsPoints:S.gpsPathPoints };
       persist(existing);
     }
   }
@@ -896,7 +919,8 @@ function onMotion(e) {
     const ang=S.heading!==null?S.heading*Math.PI/180:0;
     const last=S.pathPoints[S.pathPoints.length-1];
     S.pathPoints.push({x:last.x+Math.sin(ang), y:last.y-Math.cos(ang)});
-    drawPath();
+    // also grab real GPS for map
+    navigator.geolocation?.getCurrentPosition(p=>{ S.gpsPathPoints.push([p.coords.latitude,p.coords.longitude]); updateTrayectoMap(); },{},{ enableHighAccuracy:true, maximumAge:3000 });
   }
   S.lastMag=mag;
 }
@@ -918,47 +942,61 @@ function updateTime() {
 
 function card(d){ return ['N','NE','E','SE','S','SO','O','NO'][Math.round(d/45)%8]; }
 
-// ── PATH CANVAS ───────────────────────────────────────────
-function drawPath(id='pathCanvas', pts=null) {
-  const canvas=document.getElementById(id); if(!canvas) return;
-  const points=pts||S.pathPoints;
-  const ctx=canvas.getContext('2d');
-  const dpr=window.devicePixelRatio||1;
-  const cssW=canvas.offsetWidth||360;
-  const cssH=canvas.getBoundingClientRect().height||190;
-  canvas.width=Math.round(cssW*dpr);
-  canvas.height=Math.round(cssH*dpr);
-  canvas.style.width=cssW+'px';
-  canvas.style.height=cssH+'px';
-  ctx.scale(dpr,dpr);
-  const W=cssW, H=cssH;
-  ctx.fillStyle='#0f1a10'; ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='rgba(126,200,90,0.05)'; ctx.lineWidth=1;
-  for(let x=0;x<W;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  if (points.length<2) {
-    ctx.fillStyle='#4a5c48'; ctx.font=`${W*0.036}px 'DM Mono',monospace`;
-    ctx.textAlign='center'; ctx.fillText('Inicia el trayecto para ver el recorrido',W/2,H/2);
-    return;
-  }
-  let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
-  points.forEach(p=>{mnX=Math.min(mnX,p.x);mxX=Math.max(mxX,p.x);mnY=Math.min(mnY,p.y);mxY=Math.max(mxY,p.y);});
-  const pad=32,rx=mxX-mnX||1,ry=mxY-mnY||1;
-  const sc=Math.min((W-pad*2)/rx,(H-pad*2)/ry);
-  const cx=p=>pad+(p.x-mnX)*sc, cy=p=>pad+(p.y-mnY)*sc;
-  ctx.beginPath(); ctx.strokeStyle='rgba(204,34,68,0.25)'; ctx.lineWidth=5; ctx.lineJoin='round';
-  points.forEach((p,i)=>i===0?ctx.moveTo(cx(p),cy(p)):ctx.lineTo(cx(p),cy(p))); ctx.stroke();
-  ctx.beginPath(); ctx.strokeStyle='#cc2244'; ctx.lineWidth=2.5; ctx.lineJoin='round';
-  points.forEach((p,i)=>i===0?ctx.moveTo(cx(p),cy(p)):ctx.lineTo(cx(p),cy(p))); ctx.stroke();
-  const s=points[0];
-  ctx.fillStyle='#a8d18a'; ctx.beginPath(); ctx.arc(cx(s),cy(s),5,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#9aac90'; ctx.font=`${Math.max(10,W*0.03)}px 'DM Mono',monospace`; ctx.textAlign='left';
-  ctx.fillText('coche',cx(s)+8,cy(s)+4);
-  const ep=points[points.length-1];
-  ctx.fillStyle='#cc2244'; ctx.shadowBlur=8; ctx.shadowColor='#cc2244';
-  ctx.beginPath(); ctx.arc(cx(ep),cy(ep),5,0,Math.PI*2); ctx.fill();
-  ctx.shadowBlur=0; ctx.fillStyle='#e03358'; ctx.fillText('tú',cx(ep)+8,cy(ep)+4);
+// ── LEAFLET MAPS ──────────────────────────────────────────
+function initTrayectoMap() {
+  if (S.mapTrayecto) return;
+  const el = document.getElementById('mapTrayecto');
+  if (!el || !window.L) return;
+  S.mapTrayecto = L.map(el, { zoomControl:false, attributionControl:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© OSM'
+  }).addTo(S.mapTrayecto);
+  L.control.zoom({position:'bottomright'}).addTo(S.mapTrayecto);
+  S._trayectoLine = L.polyline([], {color:'#cc2244',weight:4,opacity:0.9}).addTo(S.mapTrayecto);
+  S._trayectoStart = null; S._trayectoEnd = null;
 }
+
+function updateTrayectoMap() {
+  if (!S.mapTrayecto) initTrayectoMap();
+  if (!S.mapTrayecto || S.gpsPathPoints.length < 1) return;
+  const lls = S.gpsPathPoints;
+  S._trayectoLine.setLatLngs(lls);
+  if (lls.length >= 2) {
+    S.mapTrayecto.fitBounds(S._trayectoLine.getBounds(), {padding:[20,20]});
+  } else {
+    S.mapTrayecto.setView(lls[0], 17);
+  }
+  // start marker
+  if (!S._trayectoStart) {
+    S._trayectoStart = L.circleMarker(lls[0], {radius:8,color:'#a8d18a',fillColor:'#a8d18a',fillOpacity:1,weight:2}).addTo(S.mapTrayecto);
+  }
+  // current position marker
+  if (S._trayectoEnd) S._trayectoEnd.setLatLng(lls[lls.length-1]);
+  else S._trayectoEnd = L.circleMarker(lls[lls.length-1], {radius:8,color:'#cc2244',fillColor:'#cc2244',fillOpacity:1,weight:2}).addTo(S.mapTrayecto);
+}
+
+function showSavedMap(gpsPoints) {
+  if (!gpsPoints || gpsPoints.length < 1) return;
+  document.getElementById('savedRouteCard').style.display='block';
+  setTimeout(() => {
+    if (!S.mapSaved) {
+      const el = document.getElementById('mapSaved');
+      if (!el || !window.L) return;
+      S.mapSaved = L.map(el, { zoomControl:false, attributionControl:false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(S.mapSaved);
+      L.control.zoom({position:'bottomright'}).addTo(S.mapSaved);
+    }
+    const line = L.polyline(gpsPoints, {color:'#cc2244',weight:4,opacity:0.9});
+    line.addTo(S.mapSaved);
+    if (gpsPoints.length >= 2) S.mapSaved.fitBounds(line.getBounds(), {padding:[20,20]});
+    else S.mapSaved.setView(gpsPoints[0], 17);
+    L.circleMarker(gpsPoints[0], {radius:8,color:'#a8d18a',fillColor:'#a8d18a',fillOpacity:1,weight:2}).addTo(S.mapSaved);
+    L.circleMarker(gpsPoints[gpsPoints.length-1], {radius:8,color:'#cc2244',fillColor:'#cc2244',fillOpacity:1,weight:2}).addTo(S.mapSaved);
+  }, 200);
+}
+
+// Legacy stub — canvas no longer used
+function drawPath(id, pts) {}
 
 // ── FIND TAB ──────────────────────────────────────────────
 function loadFindTab() {
@@ -992,12 +1030,17 @@ function loadFindTab() {
   if (data.route?.points?.length>1) {
     document.getElementById('savedRouteCard').style.display='block';
     document.getElementById('savedStepsSummary').textContent=data.route.steps+' pasos · ~'+data.route.distMeters+'m';
-    setTimeout(()=>drawPath('savedPathCanvas',data.route.points),80);
+    if(data.route?.gpsPoints?.length) showSavedMap(data.route.gpsPoints);
   }
 }
 
 function savePlaceName() {
-  const data=loadData(); if (!data) return;
+  const data=loadData();
+  if (!data) {
+    // No saved data yet — create minimal record with just the name
+    persist({ gps: null, photo: null, ts: Date.now(), placeName: document.getElementById('placeNameInput').value, route: null });
+    return;
+  }
   data.placeName=document.getElementById('placeNameInput').value;
   persist(data);
 }
@@ -1082,8 +1125,8 @@ function showToast(msg) {
 }
 
 window.addEventListener('resize', () => {
-  drawPath();
-  const d=loadData(); if(d?.route?.points) drawPath('savedPathCanvas',d.route.points);
+  if(S.mapTrayecto) S.mapTrayecto.invalidateSize();
+  if(S.mapSaved) S.mapSaved.invalidateSize();
 });
 </script>
 </body>
