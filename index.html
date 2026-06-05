@@ -346,33 +346,39 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     <!-- Tyre wheel — spins steadily -->
     <svg class="splash-wheel-inner" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"
          style="position:absolute;top:25px;left:25px;width:calc(100% - 50px);height:calc(100% - 50px)">
-      <!-- rubber tyre (thick dark ring) -->
+      <!-- rubber tyre -->
       <circle cx="55" cy="55" r="52" fill="#1a0a0c"/>
-      <circle cx="55" cy="55" r="52" fill="none" stroke="#8a1e30" stroke-width="1.5"/>
-      <circle cx="55" cy="55" r="39" fill="none" stroke="#8a1e30" stroke-width="1"/>
-      <!-- tyre tread marks (short arcs around circumference) -->
-      <circle cx="55" cy="55" r="45.5" fill="none" stroke="#2e1018" stroke-width="11"
-              stroke-dasharray="8 6.2" stroke-linecap="round"/>
-      <!-- alloy rim background -->
-      <circle cx="55" cy="55" r="38" fill="#6b1828"/>
-      <!-- 5 alloy spokes -->
-      <g stroke="#a83050" stroke-linecap="round">
-        <line x1="55" y1="20" x2="55" y2="44" stroke-width="6"/>
-        <line x1="55" y1="20" x2="55" y2="44" stroke="#c04060" stroke-width="3"/>
-        <line x1="87.2" y1="35.5" x2="73.4" y2="46.8" stroke-width="6"/>
-        <line x1="87.2" y1="35.5" x2="73.4" y2="46.8" stroke="#c04060" stroke-width="3"/>
-        <line x1="75.6" y1="75.4" x2="64.8" y2="62.5" stroke-width="6"/>
-        <line x1="75.6" y1="75.4" x2="64.8" y2="62.5" stroke="#c04060" stroke-width="3"/>
-        <line x1="34.4" y1="75.4" x2="45.2" y2="62.5" stroke-width="6"/>
-        <line x1="34.4" y1="75.4" x2="45.2" y2="62.5" stroke="#c04060" stroke-width="3"/>
-        <line x1="22.8" y1="35.5" x2="36.6" y2="46.8" stroke-width="6"/>
-        <line x1="22.8" y1="35.5" x2="36.6" y2="46.8" stroke="#c04060" stroke-width="3"/>
+      <!-- tyre outer edge -->
+      <circle cx="55" cy="55" r="52" fill="none" stroke="#7a1828" stroke-width="1.5"/>
+      <!-- tyre tread (dashed ring) -->
+      <circle cx="55" cy="55" r="45" fill="none" stroke="#2a0e14" stroke-width="13" stroke-dasharray="9 5.8" stroke-linecap="butt"/>
+      <!-- tyre inner wall -->
+      <circle cx="55" cy="55" r="38" fill="none" stroke="#6a1422" stroke-width="1"/>
+      <!-- alloy rim fill -->
+      <circle cx="55" cy="55" r="37" fill="#6b1828"/>
+      <!-- 5 spokes — mathematically centered -->
+      <g stroke-linecap="round">
+        <!-- spoke 0 → up -->
+        <line x1="55.0" y1="42.0" x2="55.0" y2="17.0" stroke="#8a2038" stroke-width="7"/>
+        <line x1="55.0" y1="42.0" x2="55.0" y2="17.0" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 1 → upper right -->
+        <line x1="67.4" y1="51.0" x2="91.1" y2="43.3" stroke="#8a2038" stroke-width="7"/>
+        <line x1="67.4" y1="51.0" x2="91.1" y2="43.3" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 2 → lower right -->
+        <line x1="62.6" y1="65.5" x2="77.3" y2="85.7" stroke="#8a2038" stroke-width="7"/>
+        <line x1="62.6" y1="65.5" x2="77.3" y2="85.7" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 3 → lower left -->
+        <line x1="47.4" y1="65.5" x2="32.7" y2="85.7" stroke="#8a2038" stroke-width="7"/>
+        <line x1="47.4" y1="65.5" x2="32.7" y2="85.7" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 4 → upper left -->
+        <line x1="42.6" y1="51.0" x2="18.9" y2="43.3" stroke="#8a2038" stroke-width="7"/>
+        <line x1="42.6" y1="51.0" x2="18.9" y2="43.3" stroke="#c04060" stroke-width="3"/>
       </g>
-      <!-- spoke gaps (dark between spokes) -->
-      <!-- hub cap -->
-      <circle cx="55" cy="55" r="14" fill="#4a1020"/>
+      <!-- hub cap rings -->
+      <circle cx="55" cy="55" r="13" fill="#3a0e18"/>
       <circle cx="55" cy="55" r="9"  fill="#8a2030"/>
-      <circle cx="55" cy="55" r="4"  fill="#c8e898"/>
+      <circle cx="55" cy="55" r="5"  fill="#c04060"/>
+      <circle cx="55" cy="55" r="2.5" fill="#c8e898"/>
     </svg>
   </div>
 
@@ -391,9 +397,9 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     <div class="perm-title">Permiso de movimiento</div>
     <div class="perm-desc">BuscAuto necesita acceder al sensor de movimiento para contar pasos y registrar el trayecto desde donde aparques.</div>
     <div class="perm-note">Solo se te pedirá esta vez. iOS mostrará su propio aviso al tocar "Permitir".</div>
-    <button class="btn btn-green" onclick="requestMotionAndStart()">
+    <button class="btn btn-green" onclick="requestMotionPermission()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Permitir y registrar trayecto
+      Permitir
     </button>
     <div class="gap"></div>
     <button class="btn btn-secondary" onclick="dismissPermPrompt()">Omitir por ahora</button>
@@ -743,20 +749,16 @@ function showPermPrompt() {
   document.getElementById('permPrompt').classList.add('show');
 }
 
-function requestMotionAndStart() {
+function requestMotionPermission() {
   document.getElementById('permPrompt').classList.remove('show');
   DeviceMotionEvent.requestPermission().then(result => {
     if (result === 'granted') {
       S.motionGranted = true;
       try { localStorage.setItem('buscauto_motion','1'); } catch {}
-      startCountdown();
-    } else {
-      showToast('Permiso denegado. Podómetro no disponible.');
     }
   }).catch(() => {
     S.motionGranted = true;
     try { localStorage.setItem('buscauto_motion','1'); } catch {}
-    startCountdown();
   });
 }
 
