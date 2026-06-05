@@ -16,16 +16,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:        #0e0608;
-  --surface:   #1a0a0e;
-  --surface2:  #240d12;
-  --surface3:  #2e1018;
-  --red:       #cc2244;
-  --red2:      #e03358;
+  --bg:        #1a0810;
+  --surface:   #260b16;
+  --surface2:  #32101e;
+  --surface3:  #3e1526;
+  --red:       #c41850;
+  --red2:      #e83a6a;
   --red-dim:   rgba(204,34,68,0.15);
-  --green:     #7ec85a;
-  --green2:    #a8d18a;
-  --green3:    #4a8c3f;
+  --green:     #6fa845;
+  --green2:    #8fb863;
+  --green3:    #5a7e35;
   --green-dim: rgba(126,200,90,0.12);
   --text:      #e8f0e0;
   --text2:     #9aac90;
@@ -41,7 +41,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-se
 /* ══ SPLASH ══════════════════════════════════════════════ */
 #splash {
   position: fixed; inset: 0; z-index: 999;
-  background: #0e0608;
+  background: #1a0810;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 40px;
@@ -72,9 +72,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-se
 /* wheel spins steadily */
 .splash-wheel-inner {
   position: absolute;
-  top: 22px; left: 22px;
-  width: calc(100% - 44px);
-  height: calc(100% - 44px);
+  top: 36px; left: 36px;
+  width: calc(100% - 72px);
+  height: calc(100% - 72px);
   animation: wspin 1.8s linear infinite;
 }
 @keyframes wspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -345,7 +345,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 
     <!-- Tyre wheel — spins steadily -->
     <svg class="splash-wheel-inner" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"
-         style="position:absolute;top:25px;left:25px;width:calc(100% - 50px);height:calc(100% - 50px)">
+         style="position:absolute;top:36px;left:36px;width:calc(100% - 72px);height:calc(100% - 72px)">
       <!-- rubber tyre -->
       <circle cx="55" cy="55" r="52" fill="#1a0a0c"/>
       <!-- tyre outer edge -->
@@ -566,9 +566,9 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
             <div class="dir-arrow-wrap">
               <div class="dir-arrow-inner" id="dirArrowInner">
                 <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-                  <circle cx="26" cy="26" r="24" stroke="#4a8c3f" stroke-width="1.5" opacity=".35"/>
-                  <line x1="26" y1="38" x2="26" y2="14" stroke="#7ec85a" stroke-width="2.5" stroke-linecap="round"/>
-                  <polyline points="18,24 26,14 34,24" stroke="#7ec85a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="26" cy="26" r="24" stroke="#5a7e35" stroke-width="1.5" opacity=".35"/>
+                  <line x1="26" y1="38" x2="26" y2="14" stroke="#8fb863" stroke-width="3" stroke-linecap="round"/>
+                  <polyline points="18,24 26,14 34,24" stroke="#8fb863" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </div>
             </div>
@@ -576,8 +576,6 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
             <div class="dir-label" id="dirLabel">Pulsa "Buscar" para localizar</div>
           </div>
 
-          <div class="data-row"><div class="data-key">Coords coche</div><div class="data-val" id="savedCoords">—</div></div>
-          <div class="data-row"><div class="data-key">Fuente GPS</div><div class="data-val" id="savedGpsSrc">—</div></div>
           <div class="gap"></div>
           <button class="btn btn-green" id="trackBtn" onclick="toggleTracking()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -694,12 +692,12 @@ function restorePhotoPreview() {
   img.src = data.photo;
   zone.prepend(img);
   S.photo = data.photo;
-  checkSaveReady();
+  // do NOT trigger save or pedometer on restore
 }
 
 // ── TABS ──────────────────────────────────────────────────
 function switchTab(t) {
-  ['guardar','pedo','find'].forEach(id => {
+  ['guardar','pedo','buscar'].forEach(id => {
     document.getElementById('sec-'+id)?.classList.remove('active');
     document.getElementById('tab-'+id)?.classList.remove('active');
     document.getElementById('nav-'+id)?.classList.remove('active');
@@ -708,7 +706,7 @@ function switchTab(t) {
   document.getElementById('tab-'+t).classList.add('active');
   document.getElementById('nav-'+t).classList.add('active');
   if (t === 'buscar') loadFindTab();
-  if (t === 'pedo') setTimeout(drawPath, 60);
+  if (t === 'pedo') setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); }, 120);
 }
 
 // ── PHOTO ─────────────────────────────────────────────────
@@ -721,17 +719,20 @@ document.getElementById('photoInput').addEventListener('change', e => {
     zone.classList.add('has-photo');
     const old = zone.querySelector('img'); if (old) old.remove();
     const img = document.createElement('img'); img.src = S.photo; zone.prepend(img);
-    checkSaveReady();
-    showToast('Foto lista');
+    showToast('Foto guardada');
     extractExif(file);
-    // Persist photo immediately so it's not lost
+    // Persist photo + fresh timestamp immediately
     const existing = loadData() || {};
     existing.photo = S.photo;
-    if (!existing.ts) existing.ts = Date.now();
+    existing.ts = Date.now();
+    if (S.gps) existing.gps = { ...S.gps, source:'device' };
     persist(existing);
-    // If already on buscar tab, refresh it
+    checkSavedPill();
     if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-    // Trigger pedometer after photo
+    // Re-fetch GPS to store the freshest coords for THIS photo
+    saveLocationData(false);
+    getGPS();
+    // START THE TRAYECTO — only happens here, on photo upload/capture
     afterPhotoUploaded();
   };
   reader.readAsDataURL(file);
@@ -811,7 +812,7 @@ function extractExif(file) {
       S.photoExifGps = { lat: dms2dec(lat,latR), lon: dms2dec(lon,lonR) };
       document.getElementById('exifBadge').classList.add('show');
       showToast('GPS detectado en la foto');
-      checkSaveReady();
+      saveLocationData(false);
     }
   });
 }
@@ -829,9 +830,8 @@ function getGPS() {
     document.getElementById('gpsLat').textContent=S.gps.lat.toFixed(6);
     document.getElementById('gpsLon').textContent=S.gps.lon.toFixed(6);
     document.getElementById('gpsAcc').textContent='±'+Math.round(S.gps.acc)+'m';
-    checkSaveReady();
     showToast('GPS obtenido · ±'+Math.round(S.gps.acc)+'m');
-    if (S.photo) saveLocation(); // auto-save once GPS arrives
+    saveLocationData(false); // persist coords, no pedometer
   }, err => {
     document.getElementById('gpsDot').className='dot err';
     document.getElementById('gpsStatus').textContent='Error';
@@ -840,27 +840,25 @@ function getGPS() {
 }
 
 function checkSaveReady() {
-  // Auto-save: no button needed
-  if (S.gps || S.photoExifGps) saveLocation();
+  // Persist location data silently — NEVER starts the pedometer
+  if (S.gps || S.photoExifGps || S.photo) saveLocationData();
 }
 
-// ── SAVE (auto) ───────────────────────────────────────────
-function saveLocation() {
+// ── SAVE (silent persist, no pedometer) ───────────────────
+function saveLocationData(showMsg) {
   const existing = loadData() || {};
   const gpsData = S.gps || S.photoExifGps || existing.gps || null;
   const data = {
     gps: gpsData ? { ...gpsData, source: S.gps?'device':(S.photoExifGps?'exif':(existing.gps?.source||'unknown')) } : null,
     photo: S.photo || existing.photo || null,
-    ts: Date.now(),
+    ts: existing.ts || Date.now(),
     placeName: existing.placeName || '',
-    route: S.pathPoints.length>1 ? { points:S.pathPoints, steps:S.steps, distMeters:s2m(S.steps) } : (existing.route||null)
+    route: existing.route || null
   };
   persist(data);
   checkSavedPill();
-  showToast('Ubicación guardada automáticamente');
+  if (showMsg) showToast('Ubicación guardada');
   if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-  // Start walking tracker — same behaviour as the old save button
-  if (!S.pedoActive && !S.pedoTriggered) { S.pedoTriggered = true; afterPhotoUploaded(); }
 }
 
 // ── PEDOMETER ─────────────────────────────────────────────
@@ -950,12 +948,16 @@ function initTrayectoMap() {
   const el = document.getElementById('mapTrayecto');
   if (!el || !window.L) return;
   S.mapTrayecto = L.map(el, { zoomControl:false, attributionControl:false });
+  // default view (centre on current GPS or a fallback) so tiles load immediately
+  const c = S.gps ? [S.gps.lat, S.gps.lon] : [40.4168, -3.7038];
+  S.mapTrayecto.setView(c, S.gps ? 17 : 5);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19, attribution:'© OSM'
   }).addTo(S.mapTrayecto);
   L.control.zoom({position:'bottomright'}).addTo(S.mapTrayecto);
-  S._trayectoLine = L.polyline([], {color:'#cc2244',weight:4,opacity:0.9}).addTo(S.mapTrayecto);
+  S._trayectoLine = L.polyline([], {color:'#c41850',weight:4,opacity:0.9}).addTo(S.mapTrayecto);
   S._trayectoStart = null; S._trayectoEnd = null;
+  setTimeout(()=>S.mapTrayecto.invalidateSize(), 200);
 }
 
 function updateTrayectoMap() {
@@ -987,6 +989,7 @@ function showSavedMap(gpsPoints) {
       S.mapSaved = L.map(el, { zoomControl:false, attributionControl:false });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(S.mapSaved);
       L.control.zoom({position:'bottomright'}).addTo(S.mapSaved);
+      setTimeout(()=>S.mapSaved.invalidateSize(), 200);
     }
     const line = L.polyline(gpsPoints, {color:'#cc2244',weight:4,opacity:0.9});
     line.addTo(S.mapSaved);
@@ -1027,12 +1030,13 @@ function loadFindTab() {
   document.getElementById('savedTime').textContent='Guardado '+d.toLocaleDateString('es-ES')+' · '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('savedCoords').textContent=data.gps.lat.toFixed(5)+', '+data.gps.lon.toFixed(5);
   document.getElementById('savedGpsSrc').textContent=data.gps.source==='exif'?'EXIF foto':'GPS dispositivo';
-  document.getElementById('mapsLink').href=`maps://maps.apple.com/?q=${data.gps.lat},${data.gps.lon}`;
+  if (data.gps) document.getElementById('mapsLink').href=`maps://maps.apple.com/?q=${data.gps.lat},${data.gps.lon}`;
 
   if (data.route?.points?.length>1) {
     document.getElementById('savedRouteCard').style.display='block';
     document.getElementById('savedStepsSummary').textContent=data.route.steps+' pasos · ~'+data.route.distMeters+'m';
     if(data.route?.gpsPoints?.length) showSavedMap(data.route.gpsPoints);
+    setTimeout(()=>{ if(S.mapSaved) S.mapSaved.invalidateSize(); }, 300);
   }
 }
 
