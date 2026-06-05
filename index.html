@@ -466,10 +466,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
         </button>
       </div>
 
-      <button class="btn btn-primary" id="saveBtn" onclick="saveLocation()" disabled>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Guardar ubicación del coche
-      </button>
+
     </div>
 
     <!-- TRAYECTO -->
@@ -812,6 +809,7 @@ function getGPS() {
     document.getElementById('gpsAcc').textContent='±'+Math.round(S.gps.acc)+'m';
     checkSaveReady();
     showToast('GPS obtenido · ±'+Math.round(S.gps.acc)+'m');
+    if (S.photo) saveLocation(); // auto-save once GPS arrives
   }, err => {
     document.getElementById('gpsDot').className='dot err';
     document.getElementById('gpsStatus').textContent='Error';
@@ -820,10 +818,11 @@ function getGPS() {
 }
 
 function checkSaveReady() {
-  document.getElementById('saveBtn').disabled = !(S.gps || S.photoExifGps);
+  // Auto-save: no button needed
+  if (S.gps || S.photoExifGps) saveLocation();
 }
 
-// ── SAVE ──────────────────────────────────────────────────
+// ── SAVE (auto) ───────────────────────────────────────────
 function saveLocation() {
   const gpsData = S.gps || S.photoExifGps; if (!gpsData) return;
   const existing = loadData() || {};
@@ -836,12 +835,9 @@ function saveLocation() {
   };
   persist(data);
   checkSavedPill();
-  const btn = document.getElementById('saveBtn');
-  const orig = btn.innerHTML;
-  btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Guardado';
-  btn.style.background='var(--green3)'; btn.style.color='var(--bg)';
-  setTimeout(()=>{ btn.innerHTML=orig; btn.style.background=''; btn.style.color=''; }, 2200);
-  showToast('Ubicación guardada');
+  showToast('Ubicación guardada automáticamente');
+  // Start walking tracker — same behaviour as the old save button
+  if (!S.pedoActive) afterPhotoUploaded();
 }
 
 // ── PEDOMETER ─────────────────────────────────────────────
