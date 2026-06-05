@@ -7,8 +7,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BuscAuto">
+<meta name="mobile-web-app-capable" content="yes">
 <title>BuscAuto</title>
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23080e09'/%3E%3Ccircle cx='90' cy='90' r='68' stroke='%234a8c3f' stroke-width='2.5' fill='none' opacity='.5'/%3E%3Cline x1='90' y1='16' x2='90' y2='32' stroke='%23a8d18a' stroke-width='3' stroke-linecap='round'/%3E%3Cline x1='90' y1='148' x2='90' y2='164' stroke='%237ec85a' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='90' x2='32' y2='90' stroke='%237ec85a' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='148' y1='90' x2='164' y2='90' stroke='%237ec85a' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpolygon points='90,36 94,66 90,62 86,66' fill='%23cc2244'/%3E%3Cpolygon points='90,144 86,114 90,118 94,114' fill='%234a8c3f' opacity='.7'/%3E%3Ccircle cx='90' cy='90' r='6' fill='%23a8d18a'/%3E%3Ccircle cx='90' cy='90' r='32' stroke='%23cc2244' stroke-width='5' fill='none'/%3E%3Ccircle cx='90' cy='90' r='14' stroke='%23cc2244' stroke-width='4' fill='%230f1a10'/%3E%3Cline x1='90' y1='58' x2='90' y2='76' stroke='%23cc2244' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='90' y1='104' x2='90' y2='122' stroke='%23cc2244' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='58' y1='90' x2='76' y2='90' stroke='%23cc2244' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='104' y1='90' x2='122' y2='90' stroke='%23cc2244' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" id="pwaIcon" href="">
+<link rel="icon" type="image/png" id="favIcon" href="">
+<script>
+(function(){
+  var b64='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';
+  var bin=atob(b64),arr=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  var blob=new Blob([arr],{type:'image/png'});
+  var url=URL.createObjectURL(blob);
+  document.getElementById('pwaIcon').href=url;
+  document.getElementById('favIcon').href=url;
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
