@@ -744,9 +744,18 @@ document.getElementById('photoInput').addEventListener('change', e => {
     persist(rec);
     checkSavedPill();
     if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-    // Re-fetch GPS to store the freshest coords for THIS photo
-    saveLocationData(false);
-    getGPS();
+    // Fetch a fresh GPS fix and attach it to THIS new car entry only
+    const newId = currentId();
+    navigator.geolocation?.getCurrentPosition(pos => {
+      S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+      const hist = loadHistory();
+      const idx = hist.findIndex(c => c.id === newId);
+      if (idx >= 0 && !hist[idx].gps) {  // don't overwrite EXIF gps if already set
+        hist[idx].gps = { ...S.gps, source:'device' };
+        saveHistory(hist);
+        if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+      }
+    }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
     // START THE TRAYECTO — only happens here, on photo upload/capture
     afterPhotoUploaded();
   };
@@ -827,7 +836,11 @@ function extractExif(file) {
       S.photoExifGps = { lat: dms2dec(lat,latR), lon: dms2dec(lon,lonR) };
       document.getElementById('exifBadge').classList.add('show');
       showToast('GPS detectado en la foto');
-      saveLocationData(false);
+      // Update the current car entry with the photo's own GPS
+      const cur = loadData() || {};
+      cur.gps = { lat: S.photoExifGps.lat, lon: S.photoExifGps.lon, source: 'exif' };
+      persist(cur);
+      if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
     }
   });
 }
@@ -846,7 +859,7 @@ function getGPS() {
     document.getElementById('gpsLon').textContent=S.gps.lon.toFixed(6);
     document.getElementById('gpsAcc').textContent='±'+Math.round(S.gps.acc)+'m';
     showToast('GPS obtenido · ±'+Math.round(S.gps.acc)+'m');
-    saveLocationData(false); // persist coords, no pedometer
+    // Do NOT persist here — the car location is only saved when a photo is taken
   }, err => {
     document.getElementById('gpsDot').className='dot err';
     document.getElementById('gpsStatus').textContent='Error';
