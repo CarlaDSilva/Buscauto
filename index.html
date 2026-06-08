@@ -300,10 +300,12 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 @keyframes tpulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
 
 /* ══ PHOTO MODAL ══════════════════════════════════════════ */
-#photoModal { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.93); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
+#photoModal { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
 #photoModal.show { display: flex; }
-#photoModalImg { max-width: 100%; max-height: 75dvh; border-radius: 12px; object-fit: contain; }
-.modal-close { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 32px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+#photoZoomWrap { flex:1; width:100%; overflow:hidden; display:flex; align-items:center; justify-content:center; touch-action:none; }
+#photoModalImg { max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; transform-origin: center center; transition: transform 0.05s linear; will-change: transform; }
+.modal-close { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 32px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; flex-shrink:0; }
+.zoom-hint { color: var(--text3); font-size: 0.72rem; font-family: 'DM Mono', monospace; }
 
 /* place name */
 .place-input { width: 100%; padding: 13px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 500; outline: none; transition: border-color 0.2s; margin-top: 10px; }
@@ -441,20 +443,6 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
     </div>
   </header>
 
-  <div class="tabs">
-    <button class="tab active" id="tab-guardar" onclick="switchTab('guardar')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-      Guardar
-    </button>
-    <button class="tab" id="tab-pedo" onclick="switchTab('pedo')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Trayecto
-    </button>
-    <button class="tab" id="tab-buscar" onclick="switchTab('buscar')">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Encontrar
-    </button>
-  </div>
 
   <div class="scroll">
 
@@ -611,7 +599,10 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 </nav>
 
 <div id="photoModal">
-  <img id="photoModalImg" src="" alt="Foto del lugar">
+  <div class="zoom-hint">Pellizca para ampliar · doble toque para reiniciar</div>
+  <div id="photoZoomWrap">
+    <img id="photoModalImg" src="" alt="Foto del lugar">
+  </div>
   <button class="modal-close" onclick="closePhotoModal()">Cerrar</button>
 </div>
 
@@ -680,13 +671,13 @@ window.addEventListener('load', () => {
     document.getElementById('splash').classList.add('hide');
     setTimeout(() => {
       const s=document.getElementById('splash'); if(s) s.remove();
-      // Ask for motion permission once, right after splash — only if not already granted
       requestMotionPermissionOnce();
     }, 700);
   }, 2800);
-  getGPS();
   checkSavedPill();
   restorePhotoPreview();
+  // App opens on BUSCAR (not Guardar) and does NOT touch GPS on launch
+  switchTab('buscar');
 });
 
 function requestMotionPermissionOnce() {
@@ -716,12 +707,10 @@ function restorePhotoPreview() {
 function switchTab(t) {
   ['guardar','pedo','buscar'].forEach(id => {
     document.getElementById('sec-'+id)?.classList.remove('active');
-    document.getElementById('tab-'+id)?.classList.remove('active');
     document.getElementById('nav-'+id)?.classList.remove('active');
   });
-  document.getElementById('sec-'+t).classList.add('active');
-  document.getElementById('tab-'+t).classList.add('active');
-  document.getElementById('nav-'+t).classList.add('active');
+  document.getElementById('sec-'+t)?.classList.add('active');
+  document.getElementById('nav-'+t)?.classList.add('active');
   if (t === 'buscar') loadFindTab();
   if (t === 'pedo') setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); }, 120);
 }
@@ -740,7 +729,7 @@ document.getElementById('photoInput').addEventListener('change', e => {
     extractExif(file);
     // NEW car entry each time a photo is taken/uploaded
     newCarEntry();
-    const rec = { id: currentId(), photo: S.photo, ts: Date.now(), placeName: '', gps: S.gps ? { ...S.gps, source:'device' } : null, route: null };
+    const rec = { id: currentId(), photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, gps: S.gps ? { ...S.gps, source:'device' } : null, route: null };
     persist(rec);
     checkSavedPill();
     if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
@@ -898,21 +887,39 @@ function startPedometer() {
   S.pathPoints=[{x:0,y:0}];
   S.gpsPathPoints=[];
   S.lastMag=null; S.lastStep=0;
+  S.hasGpsFix=false;
 
-  document.getElementById('stepCount').textContent='0';
-  document.getElementById('distMeters').textContent='0';
-  document.getElementById('distTime').textContent='3:00';
   document.getElementById('recBadge').classList.add('show');
   document.getElementById('startPedoBtn').style.display='none';
   document.getElementById('stopPedoBtn').style.display='flex';
+  document.getElementById('stepCount').textContent='0';
+  document.getElementById('distMeters').textContent='0';
 
   window.addEventListener('devicemotion', onMotion);
   window.addEventListener('deviceorientation', onOrientation);
-  S.pedoTimer = setInterval(updateTime, 1000);
-  S.pedoAutoStop = setTimeout(stopPedometer, PEDO_MS);
-  // init map
   initTrayectoMap();
-  showToast('Trayecto iniciado · 3 min');
+
+  // Probe GPS: if we get a fix quickly → 15s recording, else → 90s
+  let decided = false;
+  const decide = (withGps) => {
+    if (decided) return; decided = true;
+    S.pedoDurationMs = withGps ? 15000 : 90000;
+    document.getElementById('distTime').textContent = withGps ? '0:15' : '1:30';
+    S.pedoTimer = setInterval(updateTime, 1000);
+    S.pedoAutoStop = setTimeout(stopPedometer, S.pedoDurationMs);
+    showToast(withGps ? 'Trayecto · 15s (con GPS)' : 'Trayecto · 1m30s (sin GPS)');
+  };
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => { S.hasGpsFix=true; S.gpsPathPoints.push([p.coords.latitude,p.coords.longitude]); updateTrayectoMap(); decide(true); },
+      () => decide(false),
+      { enableHighAccuracy:true, timeout:5000, maximumAge:0 }
+    );
+    // safety: if neither callback fires in 6s, assume no GPS
+    setTimeout(() => decide(false), 6000);
+  } else {
+    decide(false);
+  }
 }
 
 function stopPedometer() {
@@ -924,7 +931,6 @@ function stopPedometer() {
   document.getElementById('recBadge').classList.remove('show');
   document.getElementById('startPedoBtn').style.display='flex';
   document.getElementById('stopPedoBtn').style.display='none';
-  // persist route into saved data
   if (S.steps > 0) {
     const existing = loadData();
     if (existing) {
@@ -965,8 +971,8 @@ function onOrientation(e) {
 }
 
 function updateTime() {
-  if (!S.pedoActive) return;
-  const rem = Math.max(0, Math.floor((PEDO_MS-(Date.now()-S.pedoStartTime))/1000));
+  if (!S.pedoActive || !S.pedoDurationMs) return;
+  const rem = Math.max(0, Math.floor((S.pedoDurationMs-(Date.now()-S.pedoStartTime))/1000));
   document.getElementById('distTime').textContent=Math.floor(rem/60)+':'+String(rem%60).padStart(2,'0');
 }
 
@@ -1215,8 +1221,46 @@ function openPhotoModal() {
   const data=loadData(); if (!data?.photo) return;
   document.getElementById('photoModalImg').src=data.photo;
   document.getElementById('photoModal').classList.add('show');
+  resetZoom();
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('show'); }
+
+// ── PINCH ZOOM + PAN ──────────────────────────────────────
+const Z = { scale:1, tx:0, ty:0, startDist:0, startScale:1, lastX:0, lastY:0, panning:false };
+function applyZoom() {
+  const img=document.getElementById('photoModalImg');
+  if (img) img.style.transform=`translate(${Z.tx}px,${Z.ty}px) scale(${Z.scale})`;
+}
+function resetZoom() { Z.scale=1; Z.tx=0; Z.ty=0; applyZoom(); }
+
+(function initZoom(){
+  const wrap=document.getElementById('photoZoomWrap');
+  if(!wrap) return;
+  wrap.addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      Z.startDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      Z.startScale=Z.scale;
+    } else if(e.touches.length===1 && Z.scale>1){
+      Z.panning=true; Z.lastX=e.touches[0].clientX; Z.lastY=e.touches[0].clientY;
+    }
+  },{passive:false});
+  wrap.addEventListener('touchmove', e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      Z.scale=Math.min(8, Math.max(1, Z.startScale*(d/Z.startDist)));
+      applyZoom();
+    } else if(Z.panning && e.touches.length===1){
+      e.preventDefault();
+      Z.tx+=e.touches[0].clientX-Z.lastX; Z.ty+=e.touches[0].clientY-Z.lastY;
+      Z.lastX=e.touches[0].clientX; Z.lastY=e.touches[0].clientY;
+      applyZoom();
+    }
+  },{passive:false});
+  wrap.addEventListener('touchend', e=>{ if(e.touches.length===0) Z.panning=false; });
+  let lastTap=0;
+  wrap.addEventListener('click', ()=>{ const n=Date.now(); if(n-lastTap<300) resetZoom(); lastTap=n; });
+})();
 
 // ── UTILS ─────────────────────────────────────────────────
 function haversine(la1,lo1,la2,lo2){const R=6371000,dl=(la2-la1)*Math.PI/180,dl2=(lo2-lo1)*Math.PI/180,a=Math.sin(dl/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl2/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
