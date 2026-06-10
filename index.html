@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#080e09">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a0810">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BuscAuto">
@@ -372,6 +373,11 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 
 .gap { height: 10px; }
 </style>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
 </head>
 <body>
 
@@ -797,26 +803,31 @@ document.getElementById('photoInput').addEventListener('change', e => {
     const old = zone.querySelector('img'); if (old) old.remove();
     const img = document.createElement('img'); img.src = S.photo; zone.prepend(img);
     showToast('Foto guardada');
-    extractExif(file);
-    // NEW car entry each time a photo is taken/uploaded
-    newCarEntry();
-    const rec = { id: currentId(), photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, gps: S.gps ? { ...S.gps, source:'device' } : null, route: null };
+
+    // NEW car entry — save immediately with whatever GPS we have (may be null)
+    const newId = newCarEntry();
+    const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', gps: S.gps ? { ...S.gps, source:'device' } : null, route: null };
     persist(rec);
     checkSavedPill();
-    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-    // Fetch a fresh GPS fix and attach it to THIS new car entry only
-    const newId = currentId();
-    navigator.geolocation?.getCurrentPosition(pos => {
-      S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
-      const hist = loadHistory();
-      const idx = hist.findIndex(c => c.id === newId);
-      if (idx >= 0 && !hist[idx].gps) {  // don't overwrite EXIF gps if already set
-        hist[idx].gps = { ...S.gps, source:'device' };
-        saveHistory(hist);
-        if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-      }
-    }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
-    // START THE TRAYECTO — only happens here, on photo upload/capture
+
+    // Try EXIF GPS from the photo file
+    extractExif(file);
+
+    // Fetch a fresh device GPS fix and attach it to THIS entry
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+        const hist = loadHistory();
+        const idx = hist.findIndex(c => c.id === newId);
+        if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
+          hist[idx].gps = { ...S.gps, source:'device' };
+          saveHistory(hist);
+          if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+        }
+      }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+    }
+
+    // START THE TRAYECTO IMMEDIATELY (no countdown)
     afterPhotoUploaded();
   };
   reader.readAsDataURL(file);
@@ -826,7 +837,9 @@ document.getElementById('photoInput').addEventListener('change', e => {
 function afterPhotoUploaded() {
   if (S.pedoActive) stopPedometer();
   S.pedoTriggered = false;
-  startCountdown(); // permission already granted or non-iOS
+  // Start the pedometer right away — no waiting
+  switchTab('pedo');
+  startPedometer();
 }
 
 // ── iOS MOTION PERMISSION PROMPT ──────────────────────────
