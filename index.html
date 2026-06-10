@@ -318,6 +318,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .place-info { flex: 1; min-width: 0; }
 .place-name { font-size: 1.04rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .place-meta { font-size: 0.84rem; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.place-del { flex-shrink:0; background:transparent; border:none; color:var(--red2); padding:8px; cursor:pointer; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.place-del:active { background:rgba(204,34,68,0.12); }
 
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
@@ -494,12 +496,7 @@ if ('serviceWorker' in navigator) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           Foto del lugar
         </div>
-        <div class="photo-zone" id="photoZone" onclick="document.getElementById('photoInputGallery').click()">
-          <div class="photo-overlay">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8fb863" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          </div>
-        </div>
-        <div class="photo-btns" style="margin-top:18px">
+        <div class="photo-btns">
           <button class="btn btn-green" onclick="document.getElementById('photoInputCamera').click()">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             Cámara
@@ -511,7 +508,8 @@ if ('serviceWorker' in navigator) {
         </div>
         <input type="file" id="photoInputCamera" accept="image/*" capture="environment" style="display:none">
         <input type="file" id="photoInputGallery" accept="image/*" style="display:none">
-        <div class="exif-badge" id="exifBadge">
+        <div class="photo-zone" id="photoZone" style="display:none"></div>
+        <div class="exif-badge" id="exifBadge" style="margin-top:16px">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           Coordenadas GPS detectadas en la foto
         </div>
@@ -546,25 +544,26 @@ if ('serviceWorker' in navigator) {
         </button>
       </div>
 
-      <!-- PLACE EDITOR: name + radius + map (shown once a place exists) -->
+      <!-- PLACE EDITOR: name + radius + map -->
       <div id="placeEditor" style="display:none">
         <div class="card" style="padding:22px">
           <div class="card-label" style="margin-bottom:16px">Lugar estacionado</div>
-          <div class="saved-photo-thumb" id="savedPhotoThumb" onclick="openPhotoModal()" style="margin-bottom:14px">
-            <div class="no-photo-ph" id="noPhotoPlaceholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Sin foto</div>
-          </div>
           <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar..." oninput="savePlaceName()" style="margin-top:0">
           <div class="park-time" id="parkTime"></div>
+          <button class="btn btn-secondary" onclick="editPhoto()" style="margin-top:16px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Cambiar foto del lugar
+          </button>
         </div>
 
         <div class="map-shell" style="height:200px"><div id="mapEstacionar" style="width:100%;height:100%"></div></div>
 
-        <button class="btn btn-secondary" id="pinBtn" onclick="togglePinMode()">
+        <button class="btn btn-secondary" id="pinBtn" onclick="togglePinMode()" style="margin-bottom:18px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           Ajustar ubicación con chincheta
         </button>
 
-        <div class="card radius-card">
+        <div class="card radius-card" style="margin-top:6px">
           <div class="radius-head">
             <span class="radius-title">Radio del lugar</span>
             <span class="radius-val" id="radiusVal">40 m</span>
@@ -602,6 +601,15 @@ if ('serviceWorker' in navigator) {
       </div>
 
       <div id="savedData" style="display:none">
+
+        <!-- Lugar estacionado: foto + tiempo -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:14px" id="buscarPlaceName">Lugar estacionado</div>
+          <div class="saved-photo-thumb" id="savedPhotoThumb" onclick="openPhotoModal()">
+            <div class="no-photo-ph" id="noPhotoPlaceholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Sin foto</div>
+          </div>
+          <div class="park-time" id="parkTimeBuscar"></div>
+        </div>
 
         <!-- LIVE MAP (smaller) with overlay -->
         <div class="map-shell">
@@ -681,7 +689,7 @@ const S = {
   mapTrayecto: null, mapBuscar: null,
   buscarCarMarker: null, buscarYouMarker: null, buscarLine: null, radiusLayer: null,
   mapEstacionar: null, estCarMarker: null,
-  pinMode: false, radiusShape: 'circle',
+  pinMode: false, radiusShape: 'circle', editPhotoMode: false,
   gpsPathPoints: []  // {lat,lon} real GPS points for map
 };
 
@@ -798,26 +806,28 @@ function handlePhoto(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     S.photo = ev.target.result;
-    const zone = document.getElementById('photoZone');
-    zone.classList.add('has-photo');
-    const old = zone.querySelector('img'); if (old) old.remove();
-    const img = document.createElement('img'); img.src = S.photo; zone.prepend(img);
-    showToast('Foto guardada');
 
-    // NEW car entry — save immediately
+    // EDIT MODE: replace photo of the place currently open in the editor
+    if (S.editPhotoMode) {
+      S.editPhotoMode = false;
+      const d = loadData();
+      if (d) { d.photo = S.photo; persist(d); }
+      extractExif(file);
+      loadEstacionarEditor();
+      showToast('Foto actualizada');
+      return;
+    }
+
+    showToast('Foto guardada');
+    // NEW place entry — save immediately
     const newId = newCarEntry();
-    S.gps = null; // reset so we don't reuse a stale fix
+    S.gps = null;
     const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', gps: null, route: null };
     persist(rec);
     checkSavedPill();
-
-    // RESET Buscar map markers so the new car replaces the old one
     resetBuscarMap();
-
-    // EXIF GPS from the photo
     extractExif(file);
 
-    // Fresh device GPS fix → attach to THIS entry
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
         S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
@@ -826,12 +836,12 @@ function handlePhoto(file) {
         if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
           hist[idx].gps = { ...S.gps, source:'device' };
           saveHistory(hist);
+          loadEstacionarEditor();
           if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
         }
       }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
     }
 
-    // Show place editor + start trayecto immediately
     loadEstacionarEditor();
     afterPhotoUploaded();
   };
@@ -1065,12 +1075,34 @@ function updateTrayectoMap() {
 function drawPath(id, pts) {}
 
 // ── FIND TAB ──────────────────────────────────────────────
-// BUSCAR tab — only the live search map + arrow + buscar button
+// BUSCAR tab — place photo + live search map + arrow
 function loadFindTab() {
   const data = loadData();
   if (!data) { document.getElementById('noSaved').style.display='block'; document.getElementById('savedData').style.display='none'; return; }
   document.getElementById('noSaved').style.display='none';
   document.getElementById('savedData').style.display='block';
+
+  // place name as label
+  document.getElementById('buscarPlaceName').textContent = data.placeName || 'Lugar estacionado';
+
+  // photo thumb
+  const thumb=document.getElementById('savedPhotoThumb');
+  const ph=document.getElementById('noPhotoPlaceholder');
+  let img=thumb.querySelector('img');
+  if (data.photo) {
+    ph.style.display='none';
+    if (!img) { img=document.createElement('img'); thumb.prepend(img); }
+    img.src=data.photo;
+    if (!thumb.querySelector('.thumb-expand')) {
+      const hint=document.createElement('div'); hint.className='thumb-expand';
+      hint.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg> Ampliar`;
+      thumb.appendChild(hint);
+    }
+  } else { if (img) img.remove(); ph.style.display='flex'; }
+
+  // park time
+  const el=document.getElementById('parkTimeBuscar');
+  if (el) el.textContent = parkTimeText(data.ts);
 
   if (data.gps) {
     document.getElementById('mapsLinkApple').href=`maps://maps.apple.com/?q=${data.gps.lat},${data.gps.lon}`;
@@ -1125,14 +1157,15 @@ function loadEstacionarEditor() {
   renderEstacionarMap();
 }
 
+function parkTimeText(ts) {
+  const mins=Math.floor((Date.now()-ts)/60000);
+  if (mins<1) return 'Estacionado hace un momento';
+  if (mins<60) return 'Estacionado hace '+mins+' min';
+  const h=Math.floor(mins/60), m=mins%60; return 'Estacionado hace '+h+'h '+(m?m+'min':'');
+}
 function updateParkTime(ts) {
   const el=document.getElementById('parkTime'); if(!el) return;
-  const mins=Math.floor((Date.now()-ts)/60000);
-  let txt;
-  if (mins<1) txt='Estacionado hace un momento';
-  else if (mins<60) txt='Estacionado hace '+mins+' min';
-  else { const h=Math.floor(mins/60), m=mins%60; txt='Estacionado hace '+h+'h '+(m?m+'min':''); }
-  el.textContent=txt;
+  el.textContent=parkTimeText(ts);
 }
 
 function selectHistory(id) {
@@ -1255,6 +1288,11 @@ function setRadiusShape(shape) {
   drawRadius();
 }
 
+function editPhoto() {
+  S.editPhotoMode = true;
+  document.getElementById('photoInputGallery').click();
+}
+
 function togglePinMode() {
   S.pinMode = !S.pinMode;
   const btn=document.getElementById('pinBtn');
@@ -1268,12 +1306,12 @@ function togglePinMode() {
   }
 }
 
-// ── PLACES LIST ───────────────────────────────────────────
+// ── PLACES LIST (editable) ────────────────────────────────
 function renderPlacesList(hist, currentIdVal) {
   const wrap=document.getElementById('placesList');
   if (!wrap) return;
   wrap.innerHTML='';
-  if (!hist.length) { wrap.innerHTML='<div style="color:var(--text3);font-size:0.82rem">Sin lugares aún</div>'; return; }
+  if (!hist.length) { wrap.innerHTML='<div style="color:var(--text3);font-size:0.9rem">Sin lugares aún</div>'; return; }
   hist.slice().reverse().forEach(c => {
     const item=document.createElement('div');
     item.className='place-item'+(c.id===currentIdVal?' active':'');
@@ -1281,10 +1319,29 @@ function renderPlacesList(hist, currentIdVal) {
     const meta=dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})+' '+dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})+' · '+(c.placeRadius||40)+'m';
     item.innerHTML =
       (c.photo?`<img class="place-thumb" src="${c.photo}">`:`<div class="place-thumb"></div>`)+
-      `<div class="place-info"><div class="place-name">${c.placeName||'Lugar sin nombre'}</div><div class="place-meta">${meta}</div></div>`;
-    item.onclick=()=>selectHistory(c.id);
+      `<div class="place-info"><div class="place-name">${c.placeName||'Lugar sin nombre'}</div><div class="place-meta">${meta}</div></div>`+
+      `<button class="place-del" title="Borrar">`+
+      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>`;
+    // tap row → select & load into editor (where name/radius/photo are editable)
+    item.querySelector('.place-info').onclick=()=>{ selectHistory(c.id); showToast('Editando: '+(c.placeName||'lugar')); };
+    item.querySelector('.place-thumb').onclick=()=>selectHistory(c.id);
+    item.querySelector('.place-del').onclick=(e)=>{ e.stopPropagation(); deletePlace(c.id); };
     wrap.appendChild(item);
   });
+}
+
+function deletePlace(id) {
+  if (!confirm('¿Borrar este lugar guardado?')) return;
+  let hist=loadHistory().filter(c=>c.id!==id);
+  saveHistory(hist);
+  if (currentId()===id) {
+    if (hist.length) setCurrentId(hist[hist.length-1].id);
+    else { store.del(CUR_KEY); store.del(DB_KEY); }
+  }
+  if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
+  checkSavedPill();
+  loadEstacionarEditor();
+  showToast('Lugar borrado');
 }
 
 function savePlaceName() {
