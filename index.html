@@ -207,6 +207,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .photo-zone.has-photo:active .photo-overlay { opacity: 1; }
 .photo-hint { font-size: 1rem; color: var(--green3); }
 .photo-btns { display: flex; gap: 14px; margin-top: 16px; }
+.photo-btns .btn { flex: 1 1 0; min-width: 0; }
 .photo-zone { margin-bottom: 4px; }
 #photoInput { display: none; }
 
@@ -320,6 +321,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .place-meta { font-size: 0.84rem; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
 .place-del { flex-shrink:0; background:transparent; border:none; color:var(--red2); padding:8px; cursor:pointer; border-radius:8px; display:flex; align-items:center; justify-content:center; }
 .place-del:active { background:rgba(204,34,68,0.12); }
+.cloud-row { display:flex; gap:12px; margin-top:12px; }
+.cloud-row .btn { margin-bottom:0; }
 
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
@@ -585,6 +588,15 @@ if ('serviceWorker' in navigator) {
         <div class="places-section">
           <div class="places-title">Lugares guardados</div>
           <div id="placesList"></div>
+          <div class="cloud-row">
+            <button class="btn btn-secondary" onclick="syncFromCloud()" style="flex:1">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Sincronizar nube
+            </button>
+            <button class="btn btn-secondary" onclick="openCloudSettings()" style="flex:0 0 auto;width:54px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -807,27 +819,30 @@ function handlePhoto(file) {
   reader.onload = ev => {
     S.photo = ev.target.result;
 
-    // EDIT MODE: replace photo of the place currently open in the editor
+    // EDIT MODE: only replace the photo of the place open in the editor
     if (S.editPhotoMode) {
       S.editPhotoMode = false;
       const d = loadData();
-      if (d) { d.photo = S.photo; persist(d); }
+      if (d) { d.photo = S.photo; persist(d); uploadPhotoToCloud(d.id, S.photo); }
       extractExif(file);
       loadEstacionarEditor();
-      showToast('Foto actualizada');
+      showToast('Foto del lugar actualizada');
       return;
     }
 
-    showToast('Foto guardada');
-    // NEW place entry — save immediately
-    const newId = newCarEntry();
+    // FRESH PARKING: brand-new entry that OVERWRITES everything (time, gps, route)
+    showToast('Lugar guardado');
+    const newId = newCarEntry();          // becomes the current id
     S.gps = null;
-    const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', gps: null, route: null };
+    const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
     persist(rec);
     checkSavedPill();
     resetBuscarMap();
+    resetEstacionarMap();
     extractExif(file);
+    uploadPhotoToCloud(newId, S.photo);
 
+    // fresh GPS fix → this entry
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
         S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
@@ -842,10 +857,15 @@ function handlePhoto(file) {
       }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
     }
 
-    loadEstacionarEditor();
+    loadEstacionarEditor();   // refresh editor with the NEW entry (resets park time)
     afterPhotoUploaded();
   };
   reader.readAsDataURL(file);
+}
+
+function resetEstacionarMap() {
+  if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; }
+  S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false;
 }
 
 document.getElementById('photoInputCamera').addEventListener('change', e => { handlePhoto(e.target.files[0]); e.target.value=''; });
@@ -1269,6 +1289,7 @@ function onRadiusChange(val) {
   data.placeRadius = parseInt(val);
   persist(data);
   drawRadius();
+  cloudSyncCurrentDebounced();
 }
 
 function onRotationChange(val) {
@@ -1277,6 +1298,7 @@ function onRotationChange(val) {
   data.radiusAngle = parseInt(val);
   persist(data);
   drawRadius();
+  cloudSyncCurrentDebounced();
 }
 
 function setRadiusShape(shape) {
@@ -1286,6 +1308,7 @@ function setRadiusShape(shape) {
   document.getElementById('rotationWrap').style.display = shape==='rect' ? 'block' : 'none';
   const data=loadData(); if(data){ data.radiusShape=shape; persist(data); }
   drawRadius();
+  cloudSyncCurrentDebounced();
 }
 
 function editPhoto() {
@@ -1353,6 +1376,7 @@ function savePlaceName() {
   }
   data.placeName=document.getElementById('placeNameInput').value;
   persist(data);
+  cloudSyncCurrentDebounced();
 }
 
 // ── LIVE TRACKING (500ms) ─────────────────────────────────
@@ -1496,6 +1520,84 @@ function resetZoom() { Z.scale=1; Z.tx=0; Z.ty=0; applyZoom(); }
 // ── UTILS ─────────────────────────────────────────────────
 function haversine(la1,lo1,la2,lo2){const R=6371000,dl=(la2-la1)*Math.PI/180,dl2=(lo2-lo1)*Math.PI/180,a=Math.sin(dl/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl2/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function getBearing(la1,lo1,la2,lo2){const dl=(lo2-lo1)*Math.PI/180,y=Math.sin(dl)*Math.cos(la2*Math.PI/180),x=Math.cos(la1*Math.PI/180)*Math.sin(la2*Math.PI/180)-Math.sin(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.cos(dl);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
+
+// ── GIST CLOUD SYNC ───────────────────────────────────────
+// Stores place photos (and metadata) in a private GitHub Gist so the
+// ~2 users share them. Requires a GitHub token + gist id, saved locally.
+const CLOUD = {
+  get token(){ return store.get('buscauto_gh_token') || ''; },
+  set token(v){ store.set('buscauto_gh_token', v); },
+  get gistId(){ return store.get('buscauto_gist_id') || ''; },
+  set gistId(v){ store.set('buscauto_gist_id', v); },
+  get enabled(){ return !!(this.token && this.gistId); }
+};
+
+async function cloudPatchGist(files) {
+  if (!CLOUD.enabled) return false;
+  try {
+    const r = await fetch('https://api.github.com/gists/' + CLOUD.gistId, {
+      method:'PATCH',
+      headers:{ 'Authorization':'Bearer '+CLOUD.token, 'Accept':'application/vnd.github+json' },
+      body: JSON.stringify({ files })
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+// Upload one place's photo + metadata to the gist (filename = place id)
+async function uploadPhotoToCloud(id, photoDataUri) {
+  if (!CLOUD.enabled) return;
+  const data = loadHistory().find(c=>c.id===id);
+  if (!data) return;
+  const payload = { id:data.id, ts:data.ts, placeName:data.placeName||'', placeRadius:data.placeRadius||40, radiusShape:data.radiusShape||'circle', radiusAngle:data.radiusAngle||0, gps:data.gps||null, photo:photoDataUri||data.photo||null };
+  const ok = await cloudPatchGist({ [id + '.json']: { content: JSON.stringify(payload) } });
+  showToast(ok ? 'Sincronizado en la nube' : 'No se pudo sincronizar');
+}
+
+// Pull all places from the gist and merge into local history
+async function syncFromCloud() {
+  if (!CLOUD.enabled) { showToast('Configura el token y gist primero'); return; }
+  try {
+    const r = await fetch('https://api.github.com/gists/' + CLOUD.gistId, {
+      headers:{ 'Authorization':'Bearer '+CLOUD.token, 'Accept':'application/vnd.github+json' }
+    });
+    if (!r.ok) { showToast('Error al leer la nube'); return; }
+    const gist = await r.json();
+    let hist = loadHistory();
+    let added = 0;
+    for (const fname in gist.files) {
+      if (!fname.endsWith('.json')) continue;
+      try {
+        const remote = JSON.parse(gist.files[fname].content);
+        const idx = hist.findIndex(c => c.id === remote.id);
+        if (idx >= 0) hist[idx] = { ...hist[idx], ...remote };
+        else { hist.push(remote); added++; }
+      } catch {}
+    }
+    saveHistory(hist);
+    checkSavedPill();
+    loadEstacionarEditor();
+    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+    showToast('Nube sincronizada · '+added+' nuevos');
+  } catch { showToast('Error de red al sincronizar'); }
+}
+
+function cloudSyncCurrentDebounced() {
+  if (!CLOUD.enabled) return;
+  clearTimeout(S._cloudT);
+  S._cloudT = setTimeout(() => { const d=loadData(); if(d) uploadPhotoToCloud(d.id, d.photo); }, 1500);
+}
+
+function openCloudSettings() {
+  const token = prompt('GitHub token (con permiso de gist):', CLOUD.token);
+  if (token === null) return;
+  CLOUD.token = token.trim();
+  const gid = prompt('ID del Gist (créalo privado en gist.github.com):', CLOUD.gistId);
+  if (gid === null) return;
+  CLOUD.gistId = gid.trim();
+  showToast(CLOUD.enabled ? 'Nube configurada' : 'Faltan datos');
+  if (CLOUD.enabled) syncFromCloud();
+}
 
 function checkSavedPill() { document.getElementById('savedPill').classList.toggle('show', !!loadData()); }
 
