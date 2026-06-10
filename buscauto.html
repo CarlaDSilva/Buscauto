@@ -677,14 +677,30 @@ const DB_KEY   = 'buscauto_v1';      // current car (back-compat)
 const HIST_KEY = 'buscauto_hist';    // array of saved cars
 const CUR_KEY  = 'buscauto_cur';     // id of currently selected car
 
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; }
-}
-function saveHistory(arr) { try { localStorage.setItem(HIST_KEY, JSON.stringify(arr)); } catch {} }
-function currentId() { try { return localStorage.getItem(CUR_KEY); } catch { return null; } }
-function setCurrentId(id) { try { localStorage.setItem(CUR_KEY, id); } catch {} }
+// localStorage may be blocked inside some in-app webviews / iframes.
+// Fall back to an in-memory store so the app still works during the session.
+const MEM = {};
+let LS_OK = false;
+try {
+  const t='__buscauto_test__';
+  localStorage.setItem(t,'1'); localStorage.removeItem(t);
+  LS_OK = true;
+} catch { LS_OK = false; }
 
-// ── PERSIST (localStorage, survives updates) ───────────────
+const store = {
+  get(k){ if(LS_OK){ try{return localStorage.getItem(k)}catch{} } return (k in MEM)?MEM[k]:null; },
+  set(k,v){ MEM[k]=String(v); if(LS_OK){ try{localStorage.setItem(k,String(v))}catch{} } },
+  del(k){ delete MEM[k]; if(LS_OK){ try{localStorage.removeItem(k)}catch{} } }
+};
+
+function loadHistory() {
+  try { return JSON.parse(store.get(HIST_KEY)) || []; } catch { return []; }
+}
+function saveHistory(arr) { store.set(HIST_KEY, JSON.stringify(arr)); }
+function currentId() { return store.get(CUR_KEY); }
+function setCurrentId(id) { store.set(CUR_KEY, id); }
+
+// ── PERSIST ────────────────────────────────────────────────
 function persist(data) {
   let hist = loadHistory();
   let id = currentId();
@@ -694,14 +710,14 @@ function persist(data) {
   const idx = hist.findIndex(c => c.id === id);
   if (idx >= 0) hist[idx] = data; else hist.push(data);
   saveHistory(hist);
-  try { localStorage.setItem(DB_KEY, JSON.stringify(data)); } catch {}
+  store.set(DB_KEY, JSON.stringify(data));
 }
 function loadData() {
   const hist = loadHistory();
   const id = currentId();
   if (id) { const c = hist.find(x => x.id === id); if (c) return c; }
   if (hist.length) return hist[hist.length-1];
-  try { const r = localStorage.getItem(DB_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+  try { const r = store.get(DB_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
 }
 // Create a NEW car entry (called when a new photo is taken)
 function newCarEntry() {
@@ -713,7 +729,7 @@ function newCarEntry() {
 // ── SPLASH ────────────────────────────────────────────────
 window.addEventListener('load', () => {
   // Restore motion permission flag
-  try { if (localStorage.getItem('buscauto_motion') === '1') S.motionGranted = true; } catch {}
+  if (store.get('buscauto_motion') === '1') S.motionGranted = true;
   setTimeout(() => {
     document.getElementById('splash').classList.add('hide');
     setTimeout(() => {
@@ -723,8 +739,9 @@ window.addEventListener('load', () => {
   }, 2800);
   checkSavedPill();
   restorePhotoPreview();
-  // App opens on BUSCAR (not Guardar) and does NOT touch GPS on launch
+  // App opens on BUSCAR and does NOT touch GPS on launch
   switchTab('buscar');
+  if (!LS_OK) setTimeout(()=>showToast('Aviso: este navegador no guarda datos entre sesiones'), 3200);
 });
 
 function requestMotionPermissionOnce() {
@@ -815,11 +832,11 @@ function requestMotionPermission() {
   DeviceMotionEvent.requestPermission().then(result => {
     if (result === 'granted') {
       S.motionGranted = true;
-      try { localStorage.setItem('buscauto_motion','1'); } catch {}
+      store.set('buscauto_motion','1');
     }
   }).catch(() => {
     S.motionGranted = true;
-    try { localStorage.setItem('buscauto_motion','1'); } catch {}
+    store.set('buscauto_motion','1');
   });
 }
 
@@ -832,9 +849,9 @@ function dismissPermPrompt() {
 function manualStartPedometer() {
   if (typeof DeviceMotionEvent?.requestPermission === 'function' && !S.motionGranted) {
     DeviceMotionEvent.requestPermission().then(result => {
-      if (result === 'granted') { S.motionGranted = true; try{localStorage.setItem('buscauto_motion','1');}catch{} startPedometer(); }
+      if (result === 'granted') { S.motionGranted = true; store.set('buscauto_motion','1'); startPedometer(); }
       else showToast('Permiso denegado por iOS');
-    }).catch(() => { S.motionGranted = true; try{localStorage.setItem('buscauto_motion','1');}catch{} startPedometer(); });
+    }).catch(() => { S.motionGranted = true; store.set('buscauto_motion','1'); startPedometer(); });
   } else {
     startPedometer();
   }
@@ -1352,7 +1369,7 @@ function clearSaved() {
   let hist=loadHistory().filter(c=>c.id!==id);
   saveHistory(hist);
   if (hist.length) setCurrentId(hist[hist.length-1].id);
-  else { localStorage.removeItem(CUR_KEY); localStorage.removeItem(DB_KEY); }
+  else { store.del(CUR_KEY); store.del(DB_KEY); }
   // reset map
   if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; S.buscarCarMarker=null; S.buscarYouMarker=null; S.buscarLine=null; S.radiusLayer=null; S._pinHandlerSet=false; }
   checkSavedPill();
