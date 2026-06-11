@@ -324,6 +324,40 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .cloud-row { display:flex; gap:12px; margin-top:12px; }
 .cloud-row .btn { margin-bottom:0; }
 
+/* ── SIMPLE ESTACIONAR ── */
+.estacionar-simple { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.park-photo { width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border2); position: relative; cursor: pointer; }
+.park-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.park-photo-empty { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text3); font-size: 0.95rem; }
+.big-save { padding: 20px; font-size: 1.18rem; }
+.btn-ghost-link { background: transparent; border: none; color: var(--text2); font-weight: 600; font-size: 0.95rem; padding: 12px; }
+.btn-ghost-link:active { color: var(--green2); }
+.park-note { font-size: 1rem; color: var(--text2); font-style: italic; margin-top: 8px; line-height: 1.4; }
+
+/* ── MANUAL PIN PICKER ── */
+#pinPicker { position: fixed; inset: 0; z-index: 750; background: var(--bg); display: none; flex-direction: column; }
+#pinPicker.show { display: flex; }
+.pin-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
+.pin-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.pin-map { flex: 1; min-height: 0; }
+.pin-map #pinPickerMap { width: 100%; height: 100%; }
+.pin-actions { flex-shrink: 0; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+.pin-hint { font-size: 0.9rem; color: var(--text3); text-align: center; }
+
+/* ── FULLSCREEN SEARCH MODE ── */
+#searchFs { position: fixed; inset: 0; z-index: 700; background: var(--bg); display: none; flex-direction: column; }
+#searchFs.show { display: flex; }
+.fs-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
+.fs-place { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fs-photo { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; cursor: pointer; border: 1px solid var(--border); }
+.fs-name { font-size: 1.2rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-close { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fs-map { flex: 1; min-height: 0; position: relative; }
+.fs-map #mapBuscar { width: 100%; height: 100%; }
+.fs-guide { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 16px max(28px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--surface) 40%); }
+.fs-arrow { transition: transform 0.4s cubic-bezier(.25,.8,.25,1); }
+.fs-dist { font-size: 2.4rem; font-weight: 800; color: var(--green2); font-family: 'DM Mono', monospace; }
+
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
 #pathCanvas, #savedPathCanvas { width: 100%; display: block; border-radius: 6px; }
@@ -341,7 +375,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 @keyframes tpulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
 
 /* ══ PHOTO MODAL ══════════════════════════════════════════ */
-#photoModal { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
+#photoModal { position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
 #photoModal.show { display: flex; }
 #photoZoomWrap { flex:1; width:100%; overflow:hidden; display:flex; align-items:center; justify-content:center; touch-action:none; }
 #photoModalImg { max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; transform-origin: center center; transition: transform 0.05s linear; will-change: transform; }
@@ -492,43 +526,58 @@ if ('serviceWorker' in navigator) {
 
   <div class="scroll">
 
-    <!-- GUARDAR -->
+    <!-- GUARDAR (Estacionar) — simple -->
     <div class="section" id="sec-guardar">
-      <div class="card" style="margin-top:4px;padding:22px">
-        <div class="card-label" style="margin-bottom:18px">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Foto del lugar
+      <div class="estacionar-simple">
+        <!-- Big photo of the car/place -->
+        <div class="park-photo" id="parkPhoto" onclick="openPhotoModal()">
+          <div class="park-photo-empty" id="parkPhotoEmpty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8a9c80" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>Aún no hay foto</span>
+          </div>
         </div>
-        <div class="photo-btns">
-          <button class="btn btn-green" onclick="document.getElementById('photoInputCamera').click()">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            Cámara
-          </button>
-          <button class="btn btn-secondary" onclick="document.getElementById('photoInputGallery').click()">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            Galería
-          </button>
-        </div>
+
+        <!-- Optional name -->
+        <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar (opcional)" oninput="savePlaceName()" style="margin-top:0">
+
+        <!-- One big action -->
+        <button class="btn btn-green big-save" onclick="document.getElementById('photoInputCamera').click()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Guardar aquí
+        </button>
+        <button class="btn btn-secondary" onclick="document.getElementById('photoInputGallery').click()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Subir desde galería
+        </button>
+
+        <!-- No-photo option: mark on map -->
+        <button class="btn btn-secondary" onclick="startManualPin()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Marcar en el mapa (sin foto)
+        </button>
+        <textarea class="place-input" id="noteInput" placeholder="Nota: dónde estacionaste (opcional)" oninput="saveNote()" rows="2" style="resize:none"></textarea>
+
         <input type="file" id="photoInputCamera" accept="image/*" capture="environment" style="display:none">
         <input type="file" id="photoInputGallery" accept="image/*" style="display:none">
-        <div class="photo-zone" id="photoZone" style="display:none"></div>
-        <div class="exif-badge" id="exifBadge" style="margin-top:16px">
+
+        <div class="park-time" id="parkTime" style="text-align:center"></div>
+
+        <div class="exif-badge" id="exifBadge" style="margin-top:4px">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          Coordenadas GPS detectadas en la foto
+          Ubicación tomada de la foto
         </div>
+
+        <!-- link to advanced settings -->
+        <button class="btn btn-ghost-link" onclick="switchTab('ajustes')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Ajustes del lugar y radio
+        </button>
       </div>
 
-      <div class="card">
-        <div class="gps-hint" id="gpsHint">
-          <span class="dot" id="gpsDot"></span>
-          <span id="gpsStatus">La ubicación se guarda al hacer la foto</span>
-        </div>
-      </div>
-
-      <!-- TRAYECTO embedded in Guardar -->
-      <div id="trayectoBlock" style="display:none">
+      <!-- TRAYECTO (auto, hidden until parking) -->
+      <div id="trayectoBlock" style="display:none;margin-top:16px">
         <div class="rec-badge" id="recBadge"><div class="rec-dot"></div> Grabando trayecto</div>
-        <div id="mapTrayecto" style="width:100%;height:300px;border-radius:14px;overflow:hidden;background:var(--surface2);margin-bottom:12px;"></div>
+        <div id="mapTrayecto" style="width:100%;height:240px;border-radius:14px;overflow:hidden;background:var(--surface2);margin-bottom:12px;"></div>
         <div class="stat-bar">
           <div class="stat-item"><span class="stat-num" id="stepCount">0</span><span class="stat-lbl">pasos</span></div>
           <div class="stat-sep"></div>
@@ -541,25 +590,42 @@ if ('serviceWorker' in navigator) {
             <span class="stat-lbl" id="compassDeg">—</span>
           </div>
         </div>
-        <button class="btn btn-secondary" id="stopPedoBtn" onclick="stopPedometer()" style="display:none">
+        <button class="btn btn-secondary" id="stopPedoBtn" onclick="stopPedometer()" style="display:none;margin-top:10px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
           Detener trayecto
         </button>
       </div>
 
-      <!-- PLACE EDITOR: name + radius + map -->
+      <span id="gpsLat" style="display:none"></span><span id="gpsLon" style="display:none"></span><span id="gpsAcc" style="display:none"></span>
+      <span id="gpsDot" style="display:none"></span><span id="gpsStatus" style="display:none"></span>
+    </div>
+
+    <!-- AJUSTES — advanced place editing -->
+    <div class="section" id="sec-ajustes">
+      <div class="places-title" style="margin-bottom:14px">Lugares guardados</div>
+      <div id="placesList"></div>
+      <div class="cloud-row" style="margin-bottom:18px">
+        <button class="btn btn-secondary" onclick="syncFromCloud()" style="flex:1">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronizar nube
+        </button>
+        <button class="btn btn-secondary" onclick="openCloudSettings()" style="flex:0 0 auto;width:54px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+      <!-- per-place editor (appears when a place is tapped) -->
       <div id="placeEditor" style="display:none">
-        <div class="card" style="padding:22px">
-          <div class="card-label" style="margin-bottom:16px">Lugar estacionado</div>
-          <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar..." oninput="savePlaceName()" style="margin-top:0">
-          <div class="park-time" id="parkTime"></div>
-          <button class="btn btn-secondary" onclick="editPhoto()" style="margin-top:16px">
+        <div class="places-title" style="margin:8px 0 14px">Editar lugar</div>
+        <div class="card" style="padding:20px">
+          <input class="place-input" id="editNameInput" type="text" placeholder="Nombre del lugar..." oninput="editPlaceName()" style="margin-top:0">
+          <button class="btn btn-secondary" onclick="editPhoto()" style="margin-top:14px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            Cambiar foto del lugar
+            Cambiar foto
           </button>
         </div>
 
-        <div class="map-shell" style="height:200px"><div id="mapEstacionar" style="width:100%;height:100%"></div></div>
+        <div class="map-shell" style="height:220px"><div id="mapEstacionar" style="width:100%;height:100%"></div></div>
 
         <button class="btn btn-secondary" id="pinBtn" onclick="togglePinMode()" style="margin-bottom:18px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -585,25 +651,12 @@ if ('serviceWorker' in navigator) {
           </div>
         </div>
 
-        <div class="places-section">
-          <div class="places-title">Lugares guardados</div>
-          <div id="placesList"></div>
-          <div class="cloud-row">
-            <button class="btn btn-secondary" onclick="syncFromCloud()" style="flex:1">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              Sincronizar nube
-            </button>
-            <button class="btn btn-secondary" onclick="openCloudSettings()" style="flex:0 0 auto;width:54px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
-          </div>
-        </div>
+        <button class="btn btn-danger" onclick="clearSaved()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          Borrar este lugar
+        </button>
       </div>
     </div>
-
-    <span id="gpsLat" style="display:none"></span>
-    <span id="gpsLon" style="display:none"></span>
-    <span id="gpsAcc" style="display:none"></span>
 
     <!-- BUSCAR -->
     <div class="section active" id="sec-buscar">
@@ -621,6 +674,7 @@ if ('serviceWorker' in navigator) {
             <div class="no-photo-ph" id="noPhotoPlaceholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Sin foto</div>
           </div>
           <div class="park-time" id="parkTimeBuscar"></div>
+          <div class="park-note" id="buscarNote" style="display:none"></div>
         </div>
 
         <!-- LIVE MAP (smaller) with overlay -->
@@ -665,6 +719,47 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<!-- FULLSCREEN SEARCH MODE -->
+<div id="searchFs">
+  <div class="fs-top">
+    <div class="fs-place">
+      <img id="fsPhoto" class="fs-photo" onclick="openPhotoModal()" alt="">
+      <div class="fs-name" id="fsPlaceName">Tu coche</div>
+    </div>
+    <button class="fs-close" onclick="stopTracking()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="fs-map" id="fsMapHolder"></div>
+  <div class="fs-guide">
+    <div class="fs-arrow" id="fsArrow">
+      <svg width="120" height="120" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="30" fill="rgba(143,184,99,0.16)" stroke="#8fb863" stroke-width="2.5"/>
+        <path d="M32 8 L46 48 L32 39 L18 48 Z" fill="#8fb863" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="fs-dist" id="fsDist">—</div>
+  </div>
+</div>
+
+<!-- MANUAL PIN PICKER -->
+<div id="pinPicker">
+  <div class="pin-top">
+    <div class="pin-title">Toca donde dejaste el coche</div>
+    <button class="fs-close" onclick="cancelManualPin()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="pin-map" id="pinPickerMap"></div>
+  <div class="pin-actions">
+    <div class="pin-hint" id="pinHint">Arrastra el mapa y toca para colocar la chincheta</div>
+    <button class="btn btn-green" id="pinConfirmBtn" onclick="confirmManualPin()" disabled>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+      Guardar aquí el coche
+    </button>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <button class="nav-btn active" id="nav-buscar" onclick="switchTab('buscar')">
     <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -673,6 +768,10 @@ if ('serviceWorker' in navigator) {
   <button class="nav-btn" id="nav-guardar" onclick="switchTab('guardar')">
     <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
     <span class="nav-label">Estacionar</span>
+  </button>
+  <button class="nav-btn" id="nav-ajustes" onclick="switchTab('ajustes')">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="nav-label">Lugares</span>
   </button>
 </nav>
 
@@ -789,15 +888,22 @@ function requestMotionPermissionOnce() {
 }
 
 function restorePhotoPreview() {
-  const data = loadData();
-  if (!data?.photo) return;
-  const zone = document.getElementById('photoZone');
-  zone.classList.add('has-photo');
-  const img = document.createElement('img');
-  img.src = data.photo;
-  zone.prepend(img);
-  S.photo = data.photo;
-  // do NOT trigger save or pedometer on restore
+  showParkPhoto(loadData()?.photo || null);
+}
+// Single image element — replace src, never accumulate
+function showParkPhoto(src) {
+  const box = document.getElementById('parkPhoto');
+  const empty = document.getElementById('parkPhotoEmpty');
+  if (!box) return;
+  let img = box.querySelector('img');
+  if (src) {
+    if (!img) { img = document.createElement('img'); box.appendChild(img); }
+    img.src = src;
+    if (empty) empty.style.display = 'none';
+  } else {
+    if (img) img.remove();
+    if (empty) empty.style.display = 'flex';
+  }
 }
 
 // ── TABS ──────────────────────────────────────────────────
@@ -809,7 +915,8 @@ function switchTab(t) {
   document.getElementById('sec-'+t)?.classList.add('active');
   document.getElementById('nav-'+t)?.classList.add('active');
   if (t === 'buscar') loadFindTab();
-  if (t === 'guardar') { loadEstacionarEditor(); setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); if(S.mapEstacionar) S.mapEstacionar.invalidateSize(); }, 150); }
+  if (t === 'guardar') { loadEstacionar(); setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); }, 150); }
+  if (t === 'ajustes') { loadAjustes(); }
 }
 
 // ── PHOTO ─────────────────────────────────────────────────
@@ -819,46 +926,65 @@ function handlePhoto(file) {
   reader.onload = ev => {
     S.photo = ev.target.result;
 
-    // EDIT MODE: only replace the photo of the place open in the editor
+    // EDIT MODE: only replace the photo of the place open in the Ajustes editor
     if (S.editPhotoMode) {
       S.editPhotoMode = false;
       const d = loadData();
       if (d) { d.photo = S.photo; persist(d); uploadPhotoToCloud(d.id, S.photo); }
       extractExif(file);
-      loadEstacionarEditor();
-      showToast('Foto del lugar actualizada');
+      loadEditor();
+      showToast('Foto actualizada');
       return;
     }
 
-    // FRESH PARKING: brand-new entry that OVERWRITES everything (time, gps, route)
-    showToast('Lugar guardado');
-    const newId = newCarEntry();          // becomes the current id
+    // FRESH PARKING: brand-new entry that OVERWRITES everything
+    showParkPhoto(S.photo);
+    const newId = newCarEntry();
     S.gps = null;
     const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
     persist(rec);
     checkSavedPill();
     resetBuscarMap();
     resetEstacionarMap();
-    extractExif(file);
     uploadPhotoToCloud(newId, S.photo);
 
-    // fresh GPS fix → this entry
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+    // Check the photo's own GPS (EXIF) FIRST. If present, it wins:
+    // we trust where the photo was taken and do NOT start a walking trayecto.
+    extractExifAsync(file).then(exifGps => {
+      if (exifGps) {
+        // Photo location wins — save it, no trayecto
         const hist = loadHistory();
         const idx = hist.findIndex(c => c.id === newId);
-        if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
-          hist[idx].gps = { ...S.gps, source:'device' };
+        if (idx >= 0) {
+          hist[idx].gps = { lat: exifGps.lat, lon: exifGps.lon, source: 'exif' };
           saveHistory(hist);
-          loadEstacionarEditor();
-          if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
         }
-      }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
-    }
+        document.getElementById('exifBadge').classList.add('show');
+        showToast('Ubicación tomada de la foto');
+        uploadPhotoToCloud(newId, S.photo);
+        loadEstacionar();
+        if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+      } else {
+        // No photo GPS → use device GPS now and start the trayecto
+        showToast('Lugar guardado');
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(pos => {
+            S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+            const hist = loadHistory();
+            const idx = hist.findIndex(c => c.id === newId);
+            if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
+              hist[idx].gps = { ...S.gps, source:'device' };
+              saveHistory(hist);
+              if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
+              if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+            }
+          }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+        }
+        afterPhotoUploaded(); // start trayecto only when there's no photo GPS
+      }
+    });
 
-    loadEstacionarEditor();   // refresh editor with the NEW entry (resets park time)
-    afterPhotoUploaded();
+    loadEstacionar();   // refresh main screen with the NEW entry
   };
   reader.readAsDataURL(file);
 }
@@ -866,6 +992,67 @@ function handlePhoto(file) {
 function resetEstacionarMap() {
   if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; }
   S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false;
+}
+
+// Manual pin: open a map, let the user tap where they parked
+function startManualPin() {
+  document.getElementById('pinPicker').classList.add('show');
+  document.getElementById('pinConfirmBtn').disabled = true;
+  document.getElementById('pinHint').textContent = 'Arrastra el mapa y toca para colocar la chincheta';
+  S._manualPinLL = null;
+  setTimeout(() => {
+    if (!S.pinPickerMap) {
+      const el = document.getElementById('pinPickerMap');
+      if (!el || !window.L) return;
+      S.pinPickerMap = L.map(el, { zoomControl:true, attributionControl:false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.pinPickerMap);
+      S.pinPickerMap.on('click', e => {
+        S._manualPinLL = e.latlng;
+        if (!S.pinPickerMarker) {
+          S.pinPickerMarker = L.marker(e.latlng).addTo(S.pinPickerMap);
+        } else S.pinPickerMarker.setLatLng(e.latlng);
+        document.getElementById('pinConfirmBtn').disabled = false;
+        document.getElementById('pinHint').textContent = 'Chincheta colocada · pulsa para guardar';
+      });
+    }
+    S.pinPickerMap.invalidateSize();
+    // center on user's current location if possible, else a default
+    navigator.geolocation?.getCurrentPosition(
+      p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 17),
+      () => S.pinPickerMap.setView([40.4168,-3.7038], 6),
+      { enableHighAccuracy:true, timeout:6000 }
+    );
+  }, 200);
+}
+
+function cancelManualPin() {
+  document.getElementById('pinPicker').classList.remove('show');
+}
+
+function confirmManualPin() {
+  if (!S._manualPinLL) return;
+  const newId = newCarEntry();
+  const note = document.getElementById('noteInput')?.value || '';
+  const rec = { id:newId, photo:null, ts:Date.now(), placeName:'', note:note,
+                placeRadius:40, radiusShape:'circle', radiusAngle:0,
+                gps:{ lat:S._manualPinLL.lat, lon:S._manualPinLL.lng, source:'manual' }, route:null };
+  persist(rec);
+  checkSavedPill();
+  resetBuscarMap();
+  resetEstacionarMap();
+  uploadPhotoToCloud(newId, null);
+  document.getElementById('pinPicker').classList.remove('show');
+  showParkPhoto(null);
+  loadEstacionar();
+  showToast('Coche marcado en el mapa');
+  // No trayecto — you marked it from memory, you're not walking from there
+}
+
+function saveNote() {
+  const data=loadData(); if(!data) return;
+  data.note=document.getElementById('noteInput').value;
+  persist(data);
+  cloudSyncCurrentDebounced();
 }
 
 document.getElementById('photoInputCamera').addEventListener('change', e => { handlePhoto(e.target.files[0]); e.target.value=''; });
@@ -908,6 +1095,21 @@ function dismissPermPrompt() {
 
 // Manual start button — also triggers permission if needed
 // ── EXIF ──────────────────────────────────────────────────
+// Promise-based EXIF GPS read (resolves to {lat,lon} or null)
+function extractExifAsync(file) {
+  return new Promise(resolve => {
+    if (typeof EXIF === 'undefined') { resolve(null); return; }
+    try {
+      EXIF.getData(file, function() {
+        const lat=EXIF.getTag(this,'GPSLatitude'), latR=EXIF.getTag(this,'GPSLatitudeRef');
+        const lon=EXIF.getTag(this,'GPSLongitude'), lonR=EXIF.getTag(this,'GPSLongitudeRef');
+        if (lat && lon) resolve({ lat: dms2dec(lat,latR), lon: dms2dec(lon,lonR) });
+        else resolve(null);
+      });
+    } catch { resolve(null); }
+  });
+}
+
 function extractExif(file) {
   S.photoExifGps = null;
   document.getElementById('exifBadge').classList.remove('show');
@@ -1006,7 +1208,7 @@ function stopPedometer() {
   document.getElementById('recBadge').classList.remove('show');
   document.getElementById('stopPedoBtn').style.display='none';
   const tb = document.getElementById('trayectoBlock'); if (tb) tb.style.display='none';
-  loadEstacionarEditor();
+  loadEstacionar();
   if (S.steps > 0) {
     const existing = loadData();
     if (existing) {
@@ -1124,6 +1326,13 @@ function loadFindTab() {
   const el=document.getElementById('parkTimeBuscar');
   if (el) el.textContent = parkTimeText(data.ts);
 
+  // note
+  const noteEl=document.getElementById('buscarNote');
+  if (noteEl) {
+    if (data.note) { noteEl.textContent = '“' + data.note + '”'; noteEl.style.display='block'; }
+    else noteEl.style.display='none';
+  }
+
   if (data.gps) {
     document.getElementById('mapsLinkApple').href=`maps://maps.apple.com/?q=${data.gps.lat},${data.gps.lon}`;
     document.getElementById('mapsLinkGoogle').href=`https://maps.google.com/?q=${data.gps.lat},${data.gps.lon}`;
@@ -1133,35 +1342,34 @@ function loadFindTab() {
 }
 
 // ESTACIONAR tab — place editor (name, radius, pin, places list, small map)
-function loadEstacionarEditor() {
+// MAIN Estacionar screen — photo + name + park time (simple)
+function loadEstacionar() {
+  const data = loadData();
+  showParkPhoto(data?.photo || null);
+  const nameEl = document.getElementById('placeNameInput');
+  if (nameEl) nameEl.value = data?.placeName || '';
+  const noteEl = document.getElementById('noteInput');
+  if (noteEl) noteEl.value = data?.note || '';
+  const pt = document.getElementById('parkTime');
+  if (pt) pt.textContent = data ? parkTimeText(data.ts) : '';
+}
+
+// AJUSTES — list of saved places
+function loadAjustes() {
   const hist = loadHistory();
+  renderPlacesList(hist, currentId());
+  // editor stays hidden until a place is tapped
+}
+
+// Per-place EDITOR (opened from the places list)
+function loadEditor() {
   const data = loadData();
   const editor = document.getElementById('placeEditor');
   if (!data) { editor.style.display='none'; return; }
   editor.style.display='block';
 
-  renderPlacesList(hist, data.id);
+  document.getElementById('editNameInput').value = data.placeName || '';
 
-  // photo thumb
-  const thumb=document.getElementById('savedPhotoThumb');
-  const ph=document.getElementById('noPhotoPlaceholder');
-  let img=thumb.querySelector('img');
-  if (data.photo) {
-    ph.style.display='none';
-    if (!img) { img=document.createElement('img'); thumb.prepend(img); }
-    img.src=data.photo;
-    if (!thumb.querySelector('.thumb-expand')) {
-      const hint=document.createElement('div'); hint.className='thumb-expand';
-      hint.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg> Ampliar`;
-      thumb.appendChild(hint);
-    }
-  } else { if (img) img.remove(); ph.style.display='flex'; }
-
-  // name + parking time
-  document.getElementById('placeNameInput').value = data.placeName || '';
-  updateParkTime(data.ts);
-
-  // radius sync
   const r = data.placeRadius || 40;
   document.getElementById('radiusSlider').value = r;
   document.getElementById('radiusVal').textContent = r + ' m';
@@ -1175,6 +1383,8 @@ function loadEstacionarEditor() {
 
   initEstacionarMap();
   renderEstacionarMap();
+  // scroll editor into view
+  setTimeout(()=>editor.scrollIntoView({behavior:'smooth',block:'start'}), 100);
 }
 
 function parkTimeText(ts) {
@@ -1188,11 +1398,13 @@ function updateParkTime(ts) {
   el.textContent=parkTimeText(ts);
 }
 
+// Tapping a place in Ajustes selects it and opens the editor
 function selectHistory(id) {
   setCurrentId(id);
   if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; S.buscarCarMarker=null; S.buscarYouMarker=null; S.buscarLine=null; S._pinHandlerSet=false; }
   if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
-  loadEstacionarEditor();
+  renderPlacesList(loadHistory(), id);
+  loadEditor();
 }
 
 // ── ESTACIONAR MAP (place + radius) ───────────────────────
@@ -1363,10 +1575,18 @@ function deletePlace(id) {
   }
   if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
   checkSavedPill();
-  loadEstacionarEditor();
+  document.getElementById('placeEditor').style.display='none';
+  loadAjustes();
   showToast('Lugar borrado');
 }
 
+function editPlaceName() {
+  const data=loadData(); if(!data) return;
+  data.placeName=document.getElementById('editNameInput').value;
+  persist(data);
+  cloudSyncCurrentDebounced();
+  renderPlacesList(loadHistory(), data.id);
+}
 function savePlaceName() {
   const data=loadData();
   if (!data) {
@@ -1385,13 +1605,19 @@ function toggleTracking() {
 }
 
 function startTracking() {
-  S.tracking=true; S._lastBearing=null; S._lastFit=0;
+  S.tracking=true; S._lastBearing=null; S._lastFit=0; S._phoneHeading=null;
   document.getElementById('trackingBadge').classList.add('show');
   const btn=document.getElementById('trackBtn');
   btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Detener búsqueda`;
   btn.style.cssText='background:var(--surface3);color:var(--text2);border:1px solid var(--border)';
+
+  // Listen to phone compass heading so the arrow points relative to where you face
+  startHeadingListener();
+
+  // Enter fullscreen guidance mode
+  enterSearchFullscreen();
+
   updateDirection();
-  // Use watchPosition for fastest updates, plus interval as fallback
   if (navigator.geolocation) {
     S._watchId = navigator.geolocation.watchPosition(onPosUpdate, null, { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
   }
@@ -1402,10 +1628,63 @@ function stopTracking() {
   S.tracking=false;
   clearInterval(S.trackInterval);
   if (S._watchId != null) { navigator.geolocation.clearWatch(S._watchId); S._watchId=null; }
+  stopHeadingListener();
+  exitSearchFullscreen();
   document.getElementById('trackingBadge').classList.remove('show');
   const btn=document.getElementById('trackBtn');
   btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar coche`;
   btn.style.cssText='';
+}
+
+// ── PHONE HEADING (compass) ───────────────────────────────
+function onSearchOrientation(e) {
+  // iOS gives webkitCompassHeading (degrees clockwise from North).
+  // Others give alpha (counter-clockwise), so convert.
+  let h = (typeof e.webkitCompassHeading === 'number') ? e.webkitCompassHeading
+        : (e.alpha != null ? 360 - e.alpha : null);
+  if (h != null) { S._phoneHeading = h; }
+}
+
+function startHeadingListener() {
+  const add = () => {
+    window.addEventListener('deviceorientationabsolute', onSearchOrientation, true);
+    window.addEventListener('deviceorientation', onSearchOrientation, true);
+  };
+  if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(p => { if (p === 'granted') add(); }).catch(add);
+  } else add();
+}
+function stopHeadingListener() {
+  window.removeEventListener('deviceorientationabsolute', onSearchOrientation, true);
+  window.removeEventListener('deviceorientation', onSearchOrientation, true);
+}
+
+// ── FULLSCREEN SEARCH MODE ────────────────────────────────
+function enterSearchFullscreen() {
+  document.getElementById('searchFs').classList.add('show');
+  // move the live map into the fullscreen container
+  const fsMap = document.getElementById('fsMapHolder');
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl && fsMap && mapEl.parentElement !== fsMap) {
+    S._mapHome = mapEl.parentElement;
+    fsMap.appendChild(mapEl);
+    setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
+  }
+  // fill the place name + photo in the fullscreen header
+  const d = loadData();
+  document.getElementById('fsPlaceName').textContent = d?.placeName || 'Tu coche';
+  const fsImg = document.getElementById('fsPhoto');
+  if (d?.photo) { fsImg.src = d.photo; fsImg.style.display='block'; }
+  else fsImg.style.display='none';
+}
+
+function exitSearchFullscreen() {
+  document.getElementById('searchFs').classList.remove('show');
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl && S._mapHome && mapEl.parentElement !== S._mapHome) {
+    S._mapHome.appendChild(mapEl);
+    setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
+  }
 }
 
 function onPosUpdate(pos) {
@@ -1420,19 +1699,24 @@ function onPosUpdate(pos) {
   const distTxt = dist<1000?Math.round(dist)+' m':(dist/1000).toFixed(1)+' km';
   document.getElementById('overlayDist').textContent=distTxt;
 
-  // Smooth the bearing: ignore noise when very close or GPS inaccurate.
-  // Below ~8 m the bearing is meaningless, so freeze the last good one.
+  // Bearing from you to the car (geographic), then make it RELATIVE to where
+  // the phone is pointing by subtracting the phone's compass heading.
   if (dist > 8 && acc < 40) {
-    let bearing=getBearing(lat,lon,data.gps.lat,data.gps.lon);
-    // smooth toward the new bearing (low-pass) to avoid jitter
-    if (S._lastBearing == null) S._lastBearing = bearing;
-    let diff = ((bearing - S._lastBearing + 540) % 360) - 180;
-    S._lastBearing = (S._lastBearing + diff * 0.4 + 360) % 360;
-    document.getElementById('overlayArrow').style.transform=`rotate(${S._lastBearing}deg)`;
-    document.getElementById('overlayArrow').style.opacity='1';
+    let geoBearing = getBearing(lat,lon,data.gps.lat,data.gps.lon);
+    let rel = geoBearing - (S._phoneHeading || 0);
+    rel = ((rel % 360) + 360) % 360;
+    if (S._lastBearing == null) S._lastBearing = rel;
+    let diff = ((rel - S._lastBearing + 540) % 360) - 180;
+    S._lastBearing = (S._lastBearing + diff * 0.5 + 360) % 360;
+    const rot = `rotate(${S._lastBearing}deg)`;
+    const oa = document.getElementById('overlayArrow'); if (oa){ oa.style.transform=rot; oa.style.opacity='1'; }
+    const fa = document.getElementById('fsArrow'); if (fa) fa.style.transform=rot;
   } else if (dist <= 8) {
-    document.getElementById('overlayArrow').style.opacity='0.25';
+    const oa = document.getElementById('overlayArrow'); if (oa) oa.style.opacity='0.25';
   }
+
+  // distance in fullscreen
+  const fd = document.getElementById('fsDist'); if (fd) fd.textContent = distTxt;
 
   // proximity alert (<20 m)
   const flash=document.getElementById('proximityFlash');
@@ -1576,7 +1860,8 @@ async function syncFromCloud() {
     }
     saveHistory(hist);
     checkSavedPill();
-    loadEstacionarEditor();
+    if (document.getElementById('sec-ajustes')?.classList.contains('active')) loadAjustes();
+    if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
     if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
     showToast('Nube sincronizada · '+added+' nuevos');
   } catch { showToast('Error de red al sincronizar'); }
