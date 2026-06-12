@@ -352,8 +352,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .fs-photo { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; cursor: pointer; border: 1px solid var(--border); }
 .fs-name { font-size: 1.2rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fs-close { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.fs-map { flex: 1; min-height: 0; position: relative; }
-.fs-map #mapBuscar { width: 100%; height: 100%; }
+.fs-map { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.fs-map #mapBuscar { position:absolute; top:-25%; left:-25%; width: 150%; height: 150%; transition: transform 0.3s ease-out; }
 .fs-guide { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 16px max(28px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--surface) 40%); }
 .fs-arrow { transition: transform 0.4s cubic-bezier(.25,.8,.25,1); }
 .fs-dist { font-size: 2.4rem; font-weight: 800; color: var(--green2); font-family: 'DM Mono', monospace; }
@@ -1679,7 +1679,31 @@ function onSearchOrientation(e) {
   // Others give alpha (counter-clockwise), so convert.
   let h = (typeof e.webkitCompassHeading === 'number') ? e.webkitCompassHeading
         : (e.alpha != null ? 360 - e.alpha : null);
-  if (h != null) { S._phoneHeading = h; }
+  if (h != null) {
+    // smooth the heading to avoid jitter
+    if (S._smoothHeading == null) S._smoothHeading = h;
+    let diff = ((h - S._smoothHeading + 540) % 360) - 180;
+    S._smoothHeading = (S._smoothHeading + diff * 0.25 + 360) % 360;
+    S._phoneHeading = S._smoothHeading;
+    applyMapRotation();
+  }
+}
+
+// Rotate the fullscreen map so "up" is where the phone points (navigation mode)
+function applyMapRotation() {
+  if (!S.tracking || !document.getElementById('searchFs').classList.contains('show')) return;
+  const holder = document.getElementById('fsMapHolder');
+  if (!holder) return;
+  const heading = S._phoneHeading || 0;
+  // rotate the whole map container backwards by heading
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) {
+    mapEl.style.transformOrigin = 'center center';
+    mapEl.style.transform = `rotate(${-heading}deg)`;
+    // counter-rotate marker icons so they stay upright
+    const cr = `rotate(${heading}deg)`;
+    document.querySelectorAll('#mapBuscar .leaflet-marker-icon, #mapBuscar .nav-you').forEach(el=>{ el.style.transform += ''; });
+  }
 }
 
 function startHeadingListener() {
@@ -1694,6 +1718,9 @@ function startHeadingListener() {
 function stopHeadingListener() {
   window.removeEventListener('deviceorientationabsolute', onSearchOrientation, true);
   window.removeEventListener('deviceorientation', onSearchOrientation, true);
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) mapEl.style.transform = '';
+  S._smoothHeading = null;
 }
 
 // ── FULLSCREEN SEARCH MODE ────────────────────────────────
@@ -1718,6 +1745,7 @@ function enterSearchFullscreen() {
 function exitSearchFullscreen() {
   document.getElementById('searchFs').classList.remove('show');
   const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) { mapEl.style.transform=''; mapEl.style.transformOrigin=''; }
   if (mapEl && S._mapHome && mapEl.parentElement !== S._mapHome) {
     S._mapHome.appendChild(mapEl);
     setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
@@ -1768,20 +1796,18 @@ function onPosUpdate(pos) {
       S.buscarLine=L.polyline([youLL,carLL],{color:'#c41850',weight:3,dashArray:'8 6',opacity:0.9}).addTo(S.mapBuscar);
     } else S.buscarLine.setLatLngs([youLL,carLL]);
 
-    // Zoom by proximity: closer = more zoom. Only adjust occasionally to avoid fighting the user.
-    if (!S._lastFit || Date.now()-S._lastFit > 2500) {
+    const fsOpen = document.getElementById('searchFs').classList.contains('show');
+    if (fsOpen) {
+      // NAVIGATION MODE: always keep YOU centred; zoom by proximity
+      let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:15;
+      S.mapBuscar.setView(youLL, z, {animate:true, duration:0.4});
+      applyMapRotation();
+    } else if (!S._lastFit || Date.now()-S._lastFit > 2500) {
+      // small map: fit both points / zoom by proximity
       S._lastFit = Date.now();
-      let z;
-      if (dist < 25) z = 19;
-      else if (dist < 60) z = 18;
-      else if (dist < 150) z = 17;
-      else if (dist < 400) z = 16;
-      else z = null; // far: fit both points instead
-      if (z) {
-        S.mapBuscar.setView(youLL, z, {animate:true});
-      } else {
-        S.mapBuscar.fitBounds(L.latLngBounds([youLL,carLL]).pad(0.3));
-      }
+      let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:null;
+      if (z) S.mapBuscar.setView(youLL, z, {animate:true});
+      else S.mapBuscar.fitBounds(L.latLngBounds([youLL,carLL]).pad(0.3));
     }
   }
 }
