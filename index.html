@@ -667,7 +667,7 @@ if ('serviceWorker' in navigator) {
 
       <div id="savedData" style="display:none">
 
-        <!-- Lugar estacionado: foto + tiempo -->
+        <!-- Lugar estacionado: foto + nota + tiempo -->
         <div class="card">
           <div class="card-label" style="margin-bottom:14px" id="buscarPlaceName">Lugar estacionado</div>
           <div class="saved-photo-thumb" id="savedPhotoThumb" onclick="openPhotoModal()">
@@ -677,7 +677,7 @@ if ('serviceWorker' in navigator) {
           <div class="park-note" id="buscarNote" style="display:none"></div>
         </div>
 
-        <!-- LIVE MAP (smaller) with overlay -->
+        <!-- LIVE MAP with overlay -->
         <div class="map-shell">
           <div id="mapBuscar"></div>
           <div class="map-overlay" id="mapOverlay">
@@ -699,21 +699,9 @@ if ('serviceWorker' in navigator) {
           Buscar coche
         </button>
 
-        <div class="maps-row">
-          <a id="mapsLinkApple" href="#" target="_blank" class="maps-link">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
-            Apple Maps
-          </a>
-          <a id="mapsLinkGoogle" href="#" target="_blank" class="maps-link">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-            Google Maps
-          </a>
-        </div>
-
-        <button class="btn btn-danger" onclick="clearSaved()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-          Borrar este lugar
-        </button>
+        <!-- hidden links used by fullscreen mode -->
+        <a id="mapsLinkApple" href="#" style="display:none"></a>
+        <a id="mapsLinkGoogle" href="#" style="display:none"></a>
       </div>
     </div>
   </div>
@@ -821,14 +809,21 @@ try {
 
 const store = {
   get(k){ if(LS_OK){ try{return localStorage.getItem(k)}catch{} } return (k in MEM)?MEM[k]:null; },
-  set(k,v){ MEM[k]=String(v); if(LS_OK){ try{localStorage.setItem(k,String(v))}catch{} } },
+  set(k,v){
+    MEM[k]=String(v);
+    if(LS_OK){
+      try{ localStorage.setItem(k,String(v)); return true; }
+      catch(e){ return false; } // quota exceeded etc.
+    }
+    return true;
+  },
   del(k){ delete MEM[k]; if(LS_OK){ try{localStorage.removeItem(k)}catch{} } }
 };
 
 function loadHistory() {
   try { return JSON.parse(store.get(HIST_KEY)) || []; } catch { return []; }
 }
-function saveHistory(arr) { store.set(HIST_KEY, JSON.stringify(arr)); }
+function saveHistory(arr) { return store.set(HIST_KEY, JSON.stringify(arr)); }
 function currentId() { return store.get(CUR_KEY); }
 function setCurrentId(id) { store.set(CUR_KEY, id); }
 
@@ -841,8 +836,29 @@ function persist(data) {
   setCurrentId(id);
   const idx = hist.findIndex(c => c.id === id);
   if (idx >= 0) hist[idx] = data; else hist.push(data);
-  saveHistory(hist);
+
+  let ok = saveHistory(hist);
+  // If storage is full, prune oldest entries' photos (keep their data) and retry
+  if (!ok) {
+    const sorted = [...hist].sort((a,b)=>a.ts-b.ts); // oldest first
+    for (const old of sorted) {
+      if (old.id === id) continue;          // never strip the current one
+      if (old.photo) {
+        old.photo = null;                   // drop old photo to free space
+        ok = saveHistory(hist);
+        if (ok) break;
+      }
+    }
+    if (!ok) {
+      // still too big: keep only current + a few newest
+      hist = hist.sort((a,b)=>b.ts-a.ts).slice(0, 8);
+      ok = saveHistory(hist);
+    }
+    if (!ok) showToast('Almacenamiento lleno — borra lugares antiguos');
+    else showToast('Espacio liberado de fotos antiguas');
+  }
   store.set(DB_KEY, JSON.stringify(data));
+  return ok;
 }
 function loadData() {
   const hist = loadHistory();
@@ -919,21 +935,41 @@ function switchTab(t) {
   if (t === 'ajustes') { loadAjustes(); }
 }
 
+// Downscale a photo to keep storage small (parking photos don't need full res)
+function downscalePhoto(dataUri, maxDim, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let { width:w, height:h } = img;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', quality)); }
+      catch { resolve(dataUri); }
+    };
+    img.onerror = () => resolve(dataUri);
+    img.src = dataUri;
+  });
+}
+
 // ── PHOTO ─────────────────────────────────────────────────
 function handlePhoto(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
-    S.photo = ev.target.result;
+  reader.onload = async ev => {
+    // Downscale to max 1280px, JPEG 70% — keeps each photo ~100-250KB
+    S.photo = await downscalePhoto(ev.target.result, 1280, 0.7);
 
     // EDIT MODE: only replace the photo of the place open in the Ajustes editor
     if (S.editPhotoMode) {
       S.editPhotoMode = false;
       const d = loadData();
-      if (d) { d.photo = S.photo; persist(d); uploadPhotoToCloud(d.id, S.photo); }
+      if (d) { d.photo = S.photo; const ok = persist(d); uploadPhotoToCloud(d.id, S.photo); showToast(ok?'Foto actualizada':'No se pudo guardar'); }
       extractExif(file);
       loadEditor();
-      showToast('Foto actualizada');
       return;
     }
 
@@ -942,7 +978,8 @@ function handlePhoto(file) {
     const newId = newCarEntry();
     S.gps = null;
     const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
-    persist(rec);
+    const okSave = persist(rec);
+    if (!okSave) showToast('Atención: poco espacio de almacenamiento');
     checkSavedPill();
     resetBuscarMap();
     resetEstacionarMap();
