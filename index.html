@@ -36,7 +36,8 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; overflow: hidden; }
+html, body { height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { font-size: 100%; } /* follows the phone's font-size accessibility setting */
 body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; font-weight: 500; }
 
 /* ══ SPLASH ══════════════════════════════════════════════ */
@@ -340,6 +341,8 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .pin-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
 .pin-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
 .pin-map { flex: 1; min-height: 0; }
+.pin-map-wrap { flex: 1; min-height: 0; position: relative; display: flex; }
+.pin-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 500; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
 .pin-map #pinPickerMap { width: 100%; height: 100%; }
 .pin-actions { flex-shrink: 0; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
 .pin-hint { font-size: 0.9rem; color: var(--text3); text-align: center; }
@@ -544,11 +547,13 @@ if ('serviceWorker' in navigator) {
         <!-- One big action -->
         <button class="btn btn-green big-save" onclick="document.getElementById('photoInputCamera').click()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Guardar aquí
+          Acabo de aparcar aquí
         </button>
+        <div class="big-save-hint">Hace una foto y guarda tu ubicación actual</div>
+
         <button class="btn btn-secondary" onclick="document.getElementById('photoInputGallery').click()">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Subir desde galería
+          Subir foto del aparcamiento
         </button>
 
         <!-- No-photo option: mark on map -->
@@ -740,7 +745,12 @@ if ('serviceWorker' in navigator) {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
   </div>
-  <div class="pin-map" id="pinPickerMap"></div>
+  <div class="pin-map-wrap">
+    <div class="pin-map" id="pinPickerMap"></div>
+    <div class="pin-crosshair">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#c41850" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="rgba(196,24,80,0.25)"/><circle cx="12" cy="10" r="3" fill="#c41850"/></svg>
+    </div>
+  </div>
   <div class="pin-actions">
     <div class="pin-hint" id="pinHint">Arrastra el mapa y toca para colocar la chincheta</div>
     <button class="btn btn-green" id="pinConfirmBtn" onclick="confirmManualPin()" disabled>
@@ -926,12 +936,14 @@ function showParkPhoto(src) {
 
 // ── TABS ──────────────────────────────────────────────────
 function switchTab(t) {
-  ['guardar','pedo','buscar'].forEach(id => {
+  ['guardar','buscar','ajustes'].forEach(id => {
     document.getElementById('sec-'+id)?.classList.remove('active');
     document.getElementById('nav-'+id)?.classList.remove('active');
   });
   document.getElementById('sec-'+t)?.classList.add('active');
   document.getElementById('nav-'+t)?.classList.add('active');
+  // hide the per-place editor whenever we leave Ajustes
+  if (t !== 'ajustes') { const ed=document.getElementById('placeEditor'); if(ed) ed.style.display='none'; }
   if (t === 'buscar') loadFindTab();
   if (t === 'guardar') { loadEstacionar(); setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); }, 150); }
   if (t === 'ajustes') { loadAjustes(); }
@@ -958,11 +970,10 @@ function downscalePhoto(dataUri, maxDim, quality) {
 }
 
 // ── PHOTO ─────────────────────────────────────────────────
-function handlePhoto(file) {
+function handlePhoto(file, source) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async ev => {
-    // Downscale to max 1280px, JPEG 70% — keeps each photo ~100-250KB
     S.photo = await downscalePhoto(ev.target.result, 1280, 0.7);
 
     // EDIT MODE: only replace the photo of the place open in the Ajustes editor
@@ -970,60 +981,65 @@ function handlePhoto(file) {
       S.editPhotoMode = false;
       const d = loadData();
       if (d) { d.photo = S.photo; const ok = persist(d); uploadPhotoToCloud(d.id, S.photo); showToast(ok?'Foto actualizada':'No se pudo guardar'); }
-      extractExif(file);
       loadEditor();
       return;
     }
 
-    // FRESH PARKING: brand-new entry that OVERWRITES everything
+    // Read EXIF first to decide location + timestamp
+    const exif = await extractExifAsync(file);
+    const hasExifGps = exif && exif.lat != null && exif.lon != null;
+    // Timestamp: photo's own date if present, otherwise now
+    const ts = (exif && exif.ts) ? exif.ts : Date.now();
+
     showParkPhoto(S.photo);
     const newId = newCarEntry();
     S.gps = null;
-    const rec = { id: newId, photo: S.photo, ts: Date.now(), placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
+    const rec = { id: newId, photo: S.photo, ts: ts, placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
     const okSave = persist(rec);
     if (!okSave) showToast('Atención: poco espacio de almacenamiento');
     checkSavedPill();
     resetBuscarMap();
     resetEstacionarMap();
-    uploadPhotoToCloud(newId, S.photo);
 
-    // Check the photo's own GPS (EXIF) FIRST. If present, it wins:
-    // we trust where the photo was taken and do NOT start a walking trayecto.
-    extractExifAsync(file).then(exifGps => {
-      if (exifGps) {
-        // Photo location wins — save it, no trayecto
-        const hist = loadHistory();
-        const idx = hist.findIndex(c => c.id === newId);
-        if (idx >= 0) {
-          hist[idx].gps = { lat: exifGps.lat, lon: exifGps.lon, source: 'exif' };
-          saveHistory(hist);
-        }
-        document.getElementById('exifBadge').classList.add('show');
-        showToast('Ubicación tomada de la foto');
-        uploadPhotoToCloud(newId, S.photo);
-        loadEstacionar();
-        if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-      } else {
-        // No photo GPS → use device GPS now and start the trayecto
-        showToast('Lugar guardado');
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(pos => {
-            S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
-            const hist = loadHistory();
-            const idx = hist.findIndex(c => c.id === newId);
-            if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
-              hist[idx].gps = { ...S.gps, source:'device' };
-              saveHistory(hist);
-              if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
-              if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
-            }
-          }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
-        }
-        afterPhotoUploaded(); // start trayecto only when there's no photo GPS
+    if (hasExifGps) {
+      // Photo carries its own location → use it, no trayecto (you're not there now)
+      const hist = loadHistory();
+      const idx = hist.findIndex(c => c.id === newId);
+      if (idx >= 0) { hist[idx].gps = { lat: exif.lat, lon: exif.lon, source:'exif' }; saveHistory(hist); }
+      applyAutoName(newId, exif.lat, exif.lon);
+      document.getElementById('exifBadge').classList.add('show');
+      showToast('Ubicación y fecha tomadas de la foto');
+      uploadPhotoToCloud(newId, S.photo);
+      loadEstacionar();
+      if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+    } else if (source === 'gallery') {
+      // Gallery photo with NO location data — can't know where; ask user to mark it
+      showToast('La foto no tiene ubicación · márcala en el mapa');
+      uploadPhotoToCloud(newId, S.photo);
+      loadEstacionar();
+      startManualPin(); // let them place it
+    } else {
+      // CAMERA: you're parking right now → current location + trayecto
+      showToast('Lugar guardado');
+      uploadPhotoToCloud(newId, S.photo);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+          const hist = loadHistory();
+          const idx = hist.findIndex(c => c.id === newId);
+          if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
+            hist[idx].gps = { ...S.gps, source:'device' };
+            saveHistory(hist);
+            applyAutoName(newId, S.gps.lat, S.gps.lon);
+            if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
+            if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+          }
+        }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
       }
-    });
+      afterPhotoUploaded();
+    }
 
-    loadEstacionar();   // refresh main screen with the NEW entry
+    loadEstacionar();
   };
   reader.readAsDataURL(file);
 }
@@ -1033,31 +1049,53 @@ function resetEstacionarMap() {
   S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false;
 }
 
-// Manual pin: open a map, let the user tap where they parked
+// If a coordinate falls inside the radius of a previously NAMED place,
+// return that name (so re-parking in the same spot auto-labels it).
+function detectPlaceName(lat, lon, excludeId) {
+  const hist = loadHistory();
+  let best=null, bestDist=Infinity;
+  for (const c of hist) {
+    if (!c.gps || !c.placeName || c.id===excludeId) continue;
+    const d = haversine(lat, lon, c.gps.lat, c.gps.lon);
+    const r = c.placeRadius || 40;
+    if (d <= r && d < bestDist) { best=c.placeName; bestDist=d; }
+  }
+  return best;
+}
+
+// Apply auto-name to an entry by id given its coords
+function applyAutoName(id, lat, lon) {
+  const name = detectPlaceName(lat, lon, id);
+  if (!name) return;
+  const hist = loadHistory();
+  const idx = hist.findIndex(c=>c.id===id);
+  if (idx>=0 && !hist[idx].placeName) {
+    hist[idx].placeName = name;
+    saveHistory(hist);
+    showToast('Lugar reconocido: '+name);
+    loadEstacionar();
+    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+  }
+}
+
+// Manual pin: drag the map under a FIXED centre pin (easier than tapping)
 function startManualPin() {
   document.getElementById('pinPicker').classList.add('show');
-  document.getElementById('pinConfirmBtn').disabled = true;
-  document.getElementById('pinHint').textContent = 'Arrastra el mapa y toca para colocar la chincheta';
-  S._manualPinLL = null;
+  document.getElementById('pinConfirmBtn').disabled = false;
+  document.getElementById('pinHint').textContent = 'Arrastra el mapa hasta el lugar';
   setTimeout(() => {
     if (!S.pinPickerMap) {
       const el = document.getElementById('pinPickerMap');
       if (!el || !window.L) return;
       S.pinPickerMap = L.map(el, { zoomControl:true, attributionControl:false });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.pinPickerMap);
-      S.pinPickerMap.on('click', e => {
-        S._manualPinLL = e.latlng;
-        if (!S.pinPickerMarker) {
-          S.pinPickerMarker = L.marker(e.latlng).addTo(S.pinPickerMap);
-        } else S.pinPickerMarker.setLatLng(e.latlng);
-        document.getElementById('pinConfirmBtn').disabled = false;
-        document.getElementById('pinHint').textContent = 'Chincheta colocada · pulsa para guardar';
-      });
     }
     S.pinPickerMap.invalidateSize();
-    // center on user's current location if possible, else a default
-    navigator.geolocation?.getCurrentPosition(
-      p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 17),
+    // start centred on a saved place or your current location
+    const d = loadData();
+    if (d?.gps) S.pinPickerMap.setView([d.gps.lat,d.gps.lon], 18);
+    else navigator.geolocation?.getCurrentPosition(
+      p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 18),
       () => S.pinPickerMap.setView([40.4168,-3.7038], 6),
       { enableHighAccuracy:true, timeout:6000 }
     );
@@ -1069,22 +1107,23 @@ function cancelManualPin() {
 }
 
 function confirmManualPin() {
-  if (!S._manualPinLL) return;
+  if (!S.pinPickerMap) return;
+  const c = S.pinPickerMap.getCenter();   // the fixed crosshair = map centre
   const newId = newCarEntry();
   const note = document.getElementById('noteInput')?.value || '';
   const rec = { id:newId, photo:null, ts:Date.now(), placeName:'', note:note,
                 placeRadius:40, radiusShape:'circle', radiusAngle:0,
-                gps:{ lat:S._manualPinLL.lat, lon:S._manualPinLL.lng, source:'manual' }, route:null };
+                gps:{ lat:c.lat, lon:c.lng, source:'manual' }, route:null };
   persist(rec);
   checkSavedPill();
   resetBuscarMap();
   resetEstacionarMap();
+  applyAutoName(newId, c.lat, c.lng);
   uploadPhotoToCloud(newId, null);
   document.getElementById('pinPicker').classList.remove('show');
   showParkPhoto(null);
   loadEstacionar();
   showToast('Coche marcado en el mapa');
-  // No trayecto — you marked it from memory, you're not walking from there
 }
 
 function saveNote() {
@@ -1094,8 +1133,8 @@ function saveNote() {
   cloudSyncCurrentDebounced();
 }
 
-document.getElementById('photoInputCamera').addEventListener('change', e => { handlePhoto(e.target.files[0]); e.target.value=''; });
-document.getElementById('photoInputGallery').addEventListener('change', e => { handlePhoto(e.target.files[0]); e.target.value=''; });
+document.getElementById('photoInputCamera').addEventListener('change', e => { handlePhoto(e.target.files[0], 'camera'); e.target.value=''; });
+document.getElementById('photoInputGallery').addEventListener('change', e => { handlePhoto(e.target.files[0], 'gallery'); e.target.value=''; });
 
 function resetBuscarMap() {
   if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; }
@@ -1134,7 +1173,7 @@ function dismissPermPrompt() {
 
 // Manual start button — also triggers permission if needed
 // ── EXIF ──────────────────────────────────────────────────
-// Promise-based EXIF GPS read (resolves to {lat,lon} or null)
+// Promise-based EXIF read (resolves to {lat,lon,ts} — any field may be null)
 function extractExifAsync(file) {
   return new Promise(resolve => {
     if (typeof EXIF === 'undefined') { resolve(null); return; }
@@ -1142,7 +1181,15 @@ function extractExifAsync(file) {
       EXIF.getData(file, function() {
         const lat=EXIF.getTag(this,'GPSLatitude'), latR=EXIF.getTag(this,'GPSLatitudeRef');
         const lon=EXIF.getTag(this,'GPSLongitude'), lonR=EXIF.getTag(this,'GPSLongitudeRef');
-        if (lat && lon) resolve({ lat: dms2dec(lat,latR), lon: dms2dec(lon,lonR) });
+        const dtStr=EXIF.getTag(this,'DateTimeOriginal')||EXIF.getTag(this,'DateTime');
+        let ts=null;
+        if (dtStr) {
+          // EXIF date format: "YYYY:MM:DD HH:MM:SS"
+          const m=String(dtStr).match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+          if (m) ts=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime();
+        }
+        const hasGps = lat && lon;
+        if (hasGps || ts) resolve({ lat: hasGps?dms2dec(lat,latR):null, lon: hasGps?dms2dec(lon,lonR):null, ts });
         else resolve(null);
       });
     } catch { resolve(null); }
