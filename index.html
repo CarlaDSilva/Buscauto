@@ -357,6 +357,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .fs-guide { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 16px max(28px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--surface) 40%); }
 .fs-arrow { transition: transform 0.4s cubic-bezier(.25,.8,.25,1); }
 .fs-dist { font-size: 2.4rem; font-weight: 800; color: var(--green2); font-family: 'DM Mono', monospace; }
+.fs-accuracy { font-size: 0.82rem; font-family: 'DM Mono', monospace; color: var(--text3); margin-top: 2px; }
 
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
@@ -727,6 +728,7 @@ if ('serviceWorker' in navigator) {
       </svg>
     </div>
     <div class="fs-dist" id="fsDist">—</div>
+    <div class="fs-accuracy" id="fsAccuracy"></div>
   </div>
 </div>
 
@@ -1643,22 +1645,31 @@ function toggleTracking() {
 
 function startTracking() {
   S.tracking=true; S._lastBearing=null; S._lastFit=0; S._phoneHeading=null;
+  S._bestAcc=Infinity; S._gpsReady=false;
   document.getElementById('trackingBadge').classList.add('show');
   const btn=document.getElementById('trackBtn');
   btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Detener búsqueda`;
   btn.style.cssText='background:var(--surface3);color:var(--text2);border:1px solid var(--border)';
 
-  // Listen to phone compass heading so the arrow points relative to where you face
   startHeadingListener();
-
-  // Enter fullscreen guidance mode
   enterSearchFullscreen();
+
+  // LOCK the map so it stays centred on you (navigation style, no manual panning)
+  if (S.mapBuscar) {
+    S.mapBuscar.dragging.disable();
+    S.mapBuscar.touchZoom.disable();
+    S.mapBuscar.doubleClickZoom.disable();
+    S.mapBuscar.scrollWheelZoom.disable();
+    S.mapBuscar.boxZoom.disable();
+    S.mapBuscar.keyboard.disable();
+    if (S.mapBuscar.tap) S.mapBuscar.tap.disable();
+  }
 
   updateDirection();
   if (navigator.geolocation) {
-    S._watchId = navigator.geolocation.watchPosition(onPosUpdate, null, { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
+    S._watchId = navigator.geolocation.watchPosition(onPosUpdate, null, { enableHighAccuracy:true, maximumAge:0, timeout:8000 });
   }
-  S.trackInterval = setInterval(()=>{ updateDirection(); const d=loadData(); if(d) updateParkTime(d.ts); }, 500);
+  S.trackInterval = setInterval(()=>{ const d=loadData(); if(d) updateParkTime(d.ts); }, 1000);
 }
 
 function stopTracking() {
@@ -1667,6 +1678,13 @@ function stopTracking() {
   if (S._watchId != null) { navigator.geolocation.clearWatch(S._watchId); S._watchId=null; }
   stopHeadingListener();
   exitSearchFullscreen();
+  // unlock map
+  if (S.mapBuscar) {
+    S.mapBuscar.dragging.enable();
+    S.mapBuscar.touchZoom.enable();
+    S.mapBuscar.doubleClickZoom.enable();
+    S.mapBuscar.scrollWheelZoom.enable();
+  }
   document.getElementById('trackingBadge').classList.remove('show');
   const btn=document.getElementById('trackBtn');
   btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar coche`;
@@ -1756,6 +1774,20 @@ function onPosUpdate(pos) {
   const data=loadData(); if (!data?.gps) return;
   const lat=pos.coords.latitude, lon=pos.coords.longitude;
   const acc=pos.coords.accuracy || 999;
+
+  // Reject clearly bad fixes: if we've already had a good one and this reading
+  // is much worse (e.g. >2x the best and over 35m), skip it so the dot doesn't
+  // jump to the wrong side of the street. Always accept the first few.
+  if (S._bestAcc == null) S._bestAcc = Infinity;
+  S._gpsCount = (S._gpsCount||0) + 1;
+  if (acc < S._bestAcc) S._bestAcc = acc;
+  if (S._gpsCount > 3 && acc > 35 && acc > S._bestAcc * 2.2) {
+    // too noisy — ignore this single reading
+    const fa3 = document.getElementById('fsAccuracy');
+    if (fa3) { fa3.textContent = 'Señal GPS débil…'; fa3.style.color='var(--red2)'; }
+    return;
+  }
+
   const carLL=[data.gps.lat,data.gps.lon];
   const youLL=[lat,lon];
   const dist=haversine(lat,lon,data.gps.lat,data.gps.lon);
@@ -1780,8 +1812,15 @@ function onPosUpdate(pos) {
     const oa = document.getElementById('overlayArrow'); if (oa) oa.style.opacity='0.25';
   }
 
-  // distance in fullscreen
+  // distance in fullscreen + accuracy hint
   const fd = document.getElementById('fsDist'); if (fd) fd.textContent = distTxt;
+  const fa2 = document.getElementById('fsAccuracy');
+  if (fa2) {
+    if (acc <= 12) fa2.textContent = 'GPS preciso · ±'+Math.round(acc)+' m';
+    else if (acc <= 30) fa2.textContent = 'GPS medio · ±'+Math.round(acc)+' m';
+    else fa2.textContent = 'GPS impreciso · ±'+Math.round(acc)+' m · busca cielo abierto';
+    fa2.style.color = acc<=12 ? 'var(--green2)' : acc<=30 ? 'var(--text2)' : 'var(--red2)';
+  }
 
   // proximity alert (<20 m)
   const flash=document.getElementById('proximityFlash');
