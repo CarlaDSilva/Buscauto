@@ -541,10 +541,10 @@ if ('serviceWorker' in navigator) {
   <header>
     <div class="header-row">
       <div style="font-family:'DM Mono',monospace;font-size:0.86rem;color:var(--text2);letter-spacing:.12em;text-transform:uppercase">Localizador</div>
-      <div class="saved-pill" id="savedPill">
+      <button class="saved-pill" id="savedPill" onclick="switchTab('buscar')">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         Coche guardado
-      </div>
+      </button>
     </div>
   </header>
 
@@ -640,7 +640,7 @@ if ('serviceWorker' in navigator) {
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
         Actualizar app a la última versión
       </button>
-      <div class="app-ver">Versión <span id="appVer">3</span></div>
+      <div class="app-ver">Versión <span id="appVer">4</span></div>
 
       <!-- per-place editor (appears when a place is tapped) -->
       <div id="placeEditor" style="display:none">
@@ -1751,20 +1751,17 @@ function startTracking() {
   startHeadingListener();
   enterSearchFullscreen();
 
-  // LOCK the map so it stays centred on you (navigation style, no manual panning)
+  // Lock PANNING only — zoom still works
   if (S.mapBuscar) {
     S.mapBuscar.dragging.disable();
-    S.mapBuscar.touchZoom.disable();
-    S.mapBuscar.doubleClickZoom.disable();
-    S.mapBuscar.scrollWheelZoom.disable();
     S.mapBuscar.boxZoom.disable();
     S.mapBuscar.keyboard.disable();
-    if (S.mapBuscar.tap) S.mapBuscar.tap.disable();
+    // keep touchZoom, scrollWheelZoom, doubleClickZoom enabled
   }
 
   updateDirection();
   if (navigator.geolocation) {
-    S._watchId = navigator.geolocation.watchPosition(onPosUpdate, null, { enableHighAccuracy:true, maximumAge:0, timeout:8000 });
+    S._watchId = navigator.geolocation.watchPosition(onPosUpdate, e=>console.warn("GPS err",e.code), { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
   }
   S.trackInterval = setInterval(()=>{ const d=loadData(); if(d) updateParkTime(d.ts); }, 1000);
 }
@@ -1775,12 +1772,10 @@ function stopTracking() {
   if (S._watchId != null) { navigator.geolocation.clearWatch(S._watchId); S._watchId=null; }
   stopHeadingListener();
   exitSearchFullscreen();
-  // unlock map
   if (S.mapBuscar) {
     S.mapBuscar.dragging.enable();
-    S.mapBuscar.touchZoom.enable();
-    S.mapBuscar.doubleClickZoom.enable();
-    S.mapBuscar.scrollWheelZoom.enable();
+    S.mapBuscar.boxZoom.enable();
+    S.mapBuscar.keyboard.enable();
   }
   document.getElementById('trackingBadge').classList.remove('show');
   const btn=document.getElementById('trackBtn');
@@ -1819,6 +1814,36 @@ function applyMapRotation() {
     const cr = `rotate(${heading}deg)`;
     document.querySelectorAll('#mapBuscar .leaflet-marker-icon, #mapBuscar .nav-you').forEach(el=>{ el.style.transform += ''; });
   }
+}
+
+// Shared AudioContext — must be created/resumed from user gesture to work on iOS
+function getAudioCtx() {
+  if (!S._audioCtx) S._audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (S._audioCtx.state === 'suspended') S._audioCtx.resume();
+  return S._audioCtx;
+}
+
+// Unlock audio on first user touch (iOS requires this)
+document.addEventListener('touchstart', () => { try { getAudioCtx(); } catch {} }, { once:true });
+document.addEventListener('click', () => { try { getAudioCtx(); } catch {} }, { once:true });
+
+function playProximitySound() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Two-tone beep: 880Hz then 1100Hz — audible even at low volume
+    [0, 0.25].forEach((offset, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = i === 0 ? 880 : 1100;
+      g.gain.setValueAtTime(0, now+offset);
+      g.gain.linearRampToValueAtTime(1.0, now+offset+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now+offset+0.22);
+      o.start(now+offset); o.stop(now+offset+0.25);
+    });
+  } catch {}
 }
 
 function startHeadingListener() {
@@ -1864,6 +1889,27 @@ function exitSearchFullscreen() {
   if (mapEl && S._mapHome && mapEl.parentElement !== S._mapHome) {
     S._mapHome.appendChild(mapEl);
     setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
+  }
+}
+
+// Fetch walking route via OSRM (open, free, no API key)
+async function fetchWalkingRoute(fromLL, toLL) {
+  const url = `https://router.project-osrm.org/route/v1/foot/${fromLL[1]},${fromLL[0]};${toLL[1]},${toLL[0]}?overview=simplified&geometries=geojson`;
+  try {
+    const r = await fetch(url, {signal: AbortSignal.timeout(5000)});
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    const coords = d.routes[0].geometry.coordinates.map(c => [c[1],c[0]]);
+    if (S.mapBuscar) {
+      if (S.buscarLine) S.buscarLine.setLatLngs(coords);
+      else S.buscarLine = L.polyline(coords, {color:'#c41850',weight:4,opacity:0.9}).addTo(S.mapBuscar);
+    }
+  } catch {
+    // Offline or error — fall back to straight line
+    if (S.mapBuscar) {
+      if (S.buscarLine) S.buscarLine.setLatLngs([fromLL, toLL]);
+      else S.buscarLine = L.polyline([fromLL,toLL],{color:'#c41850',weight:3,dashArray:'8 6',opacity:0.9}).addTo(S.mapBuscar);
+    }
   }
 }
 
@@ -1933,18 +1979,10 @@ function onPosUpdate(pos) {
   if (dist < 20) {
     flash.classList.add('show');
     if (navigator.vibrate) navigator.vibrate([200,100,200]);
-    // Audio beep as fallback (works on MIUI where vibrate is blocked)
+    // Audio alert — works even at low volume, iOS and Android
     if (!S._lastBeep || Date.now()-S._lastBeep > 3000) {
       S._lastBeep = Date.now();
-      try {
-        const ctx = new (window.AudioContext||window.webkitAudioContext)();
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = 880; g.gain.setValueAtTime(0.3,ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
-        o.start(ctx.currentTime); o.stop(ctx.currentTime+0.4);
-        setTimeout(()=>ctx.close(),600);
-      } catch {}
+      playProximitySound();
     }
   }
   else flash.classList.remove('show');
@@ -1953,22 +1991,34 @@ function onPosUpdate(pos) {
     if (!S.buscarYouMarker) {
       S.buscarYouMarker=L.circleMarker(youLL,{radius:9,color:'#fff',fillColor:'#2d7dff',fillOpacity:1,weight:3}).addTo(S.mapBuscar);
     } else S.buscarYouMarker.setLatLng(youLL);
-    if (!S.buscarLine) {
-      S.buscarLine=L.polyline([youLL,carLL],{color:'#c41850',weight:3,dashArray:'8 6',opacity:0.9}).addTo(S.mapBuscar);
-    } else S.buscarLine.setLatLngs([youLL,carLL]);
+    // Walking route (OSRM) — update every 6s to avoid hammering the server
+    if (!S._lastRoute || Date.now()-S._lastRoute > 6000) {
+      S._lastRoute = Date.now();
+      fetchWalkingRoute(youLL, carLL);
+    } else if (S.buscarLine) {
+      // just update start of existing line to smooth movement
+      const lls = S.buscarLine.getLatLngs();
+      if (lls.length) { lls[0] = L.latLng(youLL); S.buscarLine.setLatLngs(lls); }
+    } else {
+      S.buscarLine = L.polyline([youLL,carLL],{color:'#c41850',weight:4,opacity:0.85}).addTo(S.mapBuscar);
+    }
 
     const fsOpen = document.getElementById('searchFs').classList.contains('show');
     if (fsOpen) {
-      // NAVIGATION MODE: always keep YOU centred; zoom by proximity
-      let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:15;
-      S.mapBuscar.setView(youLL, z, {animate:true, duration:0.4});
+      // NAVIGATION MODE: YOU always centred, smooth pan, preserve user zoom
+      S.mapBuscar.panTo(youLL, {animate:true, duration:0.3});
+      // Auto-zoom by proximity only when far away or first fix
+      if (!S._lastFit || Date.now()-S._lastFit > 4000) {
+        S._lastFit = Date.now();
+        let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:null;
+        if (z && Math.abs(S.mapBuscar.getZoom()-z) > 1) {
+          S.mapBuscar.setZoom(z, {animate:true});
+        }
+      }
       applyMapRotation();
-    } else if (!S._lastFit || Date.now()-S._lastFit > 2500) {
-      // small map: fit both points / zoom by proximity
-      S._lastFit = Date.now();
-      let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:null;
-      if (z) S.mapBuscar.setView(youLL, z, {animate:true});
-      else S.mapBuscar.fitBounds(L.latLngBounds([youLL,carLL]).pad(0.3));
+    } else {
+      // Small map: keep YOU centred too when tracking
+      if (S.tracking) S.mapBuscar.panTo(youLL, {animate:true, duration:0.5});
     }
   }
 }
