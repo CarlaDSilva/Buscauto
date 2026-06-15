@@ -331,7 +331,9 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .park-photo { width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border2); position: relative; cursor: pointer; }
 .park-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .park-photo-empty { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text3); font-size: 0.95rem; }
-.big-save { padding: 20px; font-size: 1.18rem; }
+.big-save { padding: 20px; font-size: 1.18rem; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.big-save-main { font-size: 1.1rem; font-weight: 700; }
+.big-save-sub { font-size: 0.82rem; font-weight: 400; opacity: 0.82; }
 .btn-ghost-link { background: transparent; border: none; color: var(--text2); font-weight: 600; font-size: 0.95rem; padding: 12px; }
 .btn-ghost-link:active { color: var(--green2); }
 .park-note { font-size: 1rem; color: var(--text2); font-style: italic; margin-top: 8px; line-height: 1.4; }
@@ -550,13 +552,8 @@ if ('serviceWorker' in navigator) {
     <!-- GUARDAR (Estacionar) — simple -->
     <div class="section" id="sec-guardar">
       <div class="estacionar-simple">
-        <!-- Big photo of the car/place -->
-        <div class="park-photo" id="parkPhoto" onclick="openPhotoModal()">
-          <div class="park-photo-empty" id="parkPhotoEmpty">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8a9c80" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>Aún no hay foto</span>
-          </div>
-        </div>
+        <!-- Big photo of the car/place (only shown once a photo exists) -->
+        <div class="park-photo" id="parkPhoto" onclick="openPhotoModal()" style="display:none"></div>
 
         <!-- Optional name -->
         <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar (opcional)" oninput="savePlaceName()" style="margin-top:0">
@@ -564,13 +561,13 @@ if ('serviceWorker' in navigator) {
         <!-- One big action -->
         <button class="btn btn-green big-save" onclick="document.getElementById('photoInputCamera').click()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Acabo de aparcar aquí
+          <span class="big-save-main">Acabo de estacionar</span>
+          <span class="big-save-sub">Hace una foto y guarda tu ubicación</span>
         </button>
-        <div class="big-save-hint">Hace una foto y guarda tu ubicación actual</div>
 
         <button class="btn btn-secondary" onclick="document.getElementById('photoInputGallery').click()">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Subir foto del aparcamiento
+          Subir foto del estacionamiento
         </button>
 
         <!-- No-photo option: mark on map -->
@@ -944,16 +941,15 @@ function restorePhotoPreview() {
 // Single image element — replace src, never accumulate
 function showParkPhoto(src) {
   const box = document.getElementById('parkPhoto');
-  const empty = document.getElementById('parkPhotoEmpty');
   if (!box) return;
   let img = box.querySelector('img');
   if (src) {
     if (!img) { img = document.createElement('img'); box.appendChild(img); }
     img.src = src;
-    if (empty) empty.style.display = 'none';
+    box.style.display = 'block';
   } else {
     if (img) img.remove();
-    if (empty) empty.style.display = 'flex';
+    box.style.display = 'none';
   }
 }
 
