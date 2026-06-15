@@ -324,6 +324,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .place-del:active { background:rgba(204,34,68,0.12); }
 .cloud-row { display:flex; gap:12px; margin-top:12px; }
 .cloud-row .btn { margin-bottom:0; }
+.app-ver { text-align:center; font-size:0.78rem; color:var(--text3); font-family:'DM Mono',monospace; margin-bottom:18px; }
 
 /* ── SIMPLE ESTACIONAR ── */
 .estacionar-simple { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
@@ -420,7 +421,23 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 </style>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.update(); // check for a newer SW each launch
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            nw.postMessage('skipWaiting');
+          }
+        });
+      });
+    }).catch(()=>{});
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return; refreshing = true; location.reload();
+    });
+  });
 }
 </script>
 </head>
@@ -620,6 +637,12 @@ if ('serviceWorker' in navigator) {
         </button>
       </div>
 
+      <button class="btn btn-secondary" onclick="forceUpdateApp()" style="margin-bottom:18px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Actualizar app a la última versión
+      </button>
+      <div class="app-ver">Versión <span id="appVer">3</span></div>
+
       <!-- per-place editor (appears when a place is tapped) -->
       <div id="placeEditor" style="display:none">
         <div class="places-title" style="margin:8px 0 14px">Editar lugar</div>
@@ -800,7 +823,7 @@ const S = {
   mapTrayecto: null, mapBuscar: null,
   buscarCarMarker: null, buscarYouMarker: null, buscarLine: null, radiusLayer: null,
   mapEstacionar: null, estCarMarker: null,
-  pinMode: false, radiusShape: 'circle', editPhotoMode: false,
+  pinMode: false, radiusShape: 'circle', editPhotoMode: false, editingId: null,
   gpsPathPoints: []  // {lat,lon} real GPS points for map
 };
 
@@ -979,9 +1002,10 @@ function handlePhoto(file, source) {
     // EDIT MODE: only replace the photo of the place open in the Ajustes editor
     if (S.editPhotoMode) {
       S.editPhotoMode = false;
-      const d = loadData();
-      if (d) { d.photo = S.photo; const ok = persist(d); uploadPhotoToCloud(d.id, S.photo); showToast(ok?'Foto actualizada':'No se pudo guardar'); }
+      const d = loadEditing();
+      if (d) { d.photo = S.photo; const ok = persistEditing(d); uploadPhotoToCloud(d.id, S.photo); showToast(ok?'Foto actualizada':'No se pudo guardar'); }
       loadEditor();
+      renderPlacesList(loadHistory(), S.editingId);
       return;
     }
 
@@ -1448,8 +1472,22 @@ function loadAjustes() {
 }
 
 // Per-place EDITOR (opened from the places list)
+// ── EDITOR works on a SEPARATE id, never changes the parked car ──
+function loadEditing() {
+  if (!S.editingId) return null;
+  return loadHistory().find(c => c.id === S.editingId) || null;
+}
+function persistEditing(data) {
+  const hist = loadHistory();
+  const idx = hist.findIndex(c => c.id === data.id);
+  if (idx >= 0) hist[idx] = data; else hist.push(data);
+  const ok = saveHistory(hist);
+  if (!ok) showToast('Almacenamiento lleno');
+  return ok;
+}
+
 function loadEditor() {
-  const data = loadData();
+  const data = loadEditing();
   const editor = document.getElementById('placeEditor');
   if (!data) { editor.style.display='none'; return; }
   editor.style.display='block';
@@ -1486,8 +1524,7 @@ function updateParkTime(ts) {
 
 // Tapping a place in Ajustes selects it and opens the editor
 function selectHistory(id) {
-  setCurrentId(id);
-  if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; S.buscarCarMarker=null; S.buscarYouMarker=null; S.buscarLine=null; S._pinHandlerSet=false; }
+  S.editingId = id;   // edit this place WITHOUT changing the active parked car
   if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
   renderPlacesList(loadHistory(), id);
   loadEditor();
@@ -1498,7 +1535,7 @@ function initEstacionarMap() {
   if (S.mapEstacionar) { setTimeout(()=>S.mapEstacionar.invalidateSize(),150); return; }
   const el=document.getElementById('mapEstacionar');
   if (!el || !window.L) return;
-  const data=loadData();
+  const data=loadEditing();
   const c = data?.gps ? [data.gps.lat,data.gps.lon] : (S.gps?[S.gps.lat,S.gps.lon]:[40.4168,-3.7038]);
   S.mapEstacionar=L.map(el,{zoomControl:false,attributionControl:false}).setView(c, data?.gps?18:5);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.mapEstacionar);
@@ -1507,7 +1544,7 @@ function initEstacionarMap() {
 }
 
 function renderEstacionarMap() {
-  const data=loadData();
+  const data=loadEditing();
   if (!S.mapEstacionar || !data?.gps) return;
   const carLL=[data.gps.lat,data.gps.lon];
   if (!S.estCarMarker) {
@@ -1518,9 +1555,9 @@ function renderEstacionarMap() {
   if (!S._pinHandlerSetEst) {
     S.mapEstacionar.on('click', e => {
       if (!S.pinMode) return;
-      const d=loadData(); if(!d) return;
+      const d=loadEditing(); if(!d) return;
       d.gps={ lat:e.latlng.lat, lon:e.latlng.lng, source:'manual' };
-      persist(d);
+      persistEditing(d);
       togglePinMode();
       renderEstacionarMap();
       showToast('Ubicación ajustada con chincheta');
@@ -1554,7 +1591,7 @@ function renderBuscarMap() {
 }
 
 function drawRadius() {
-  const data=loadData();
+  const data=loadEditing();
   if (!S.mapEstacionar || !data?.gps) return;
   const carLL=[data.gps.lat,data.gps.lon];
   const r = data.placeRadius || 40;
@@ -1583,20 +1620,20 @@ function drawRadius() {
 
 function onRadiusChange(val) {
   document.getElementById('radiusVal').textContent = val + ' m';
-  const data=loadData(); if(!data) return;
+  const data=loadEditing(); if(!data) return;
   data.placeRadius = parseInt(val);
-  persist(data);
+  persistEditing(data);
   drawRadius();
-  cloudSyncCurrentDebounced();
+  cloudSyncEditingDebounced();
 }
 
 function onRotationChange(val) {
   document.getElementById('rotationVal').textContent = val + '°';
-  const data=loadData(); if(!data) return;
+  const data=loadEditing(); if(!data) return;
   data.radiusAngle = parseInt(val);
-  persist(data);
+  persistEditing(data);
   drawRadius();
-  cloudSyncCurrentDebounced();
+  cloudSyncEditingDebounced();
 }
 
 function setRadiusShape(shape) {
@@ -1604,9 +1641,9 @@ function setRadiusShape(shape) {
   document.getElementById('shapeCircle').classList.toggle('active', shape==='circle');
   document.getElementById('shapeRect').classList.toggle('active', shape==='rect');
   document.getElementById('rotationWrap').style.display = shape==='rect' ? 'block' : 'none';
-  const data=loadData(); if(data){ data.radiusShape=shape; persist(data); }
+  const data=loadEditing(); if(data){ data.radiusShape=shape; persistEditing(data); }
   drawRadius();
-  cloudSyncCurrentDebounced();
+  cloudSyncEditingDebounced();
 }
 
 function editPhoto() {
@@ -1659,6 +1696,7 @@ function deletePlace(id) {
     if (hist.length) setCurrentId(hist[hist.length-1].id);
     else { store.del(CUR_KEY); store.del(DB_KEY); }
   }
+  if (S.editingId===id) S.editingId=null;
   if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
   checkSavedPill();
   document.getElementById('placeEditor').style.display='none';
@@ -1667,10 +1705,10 @@ function deletePlace(id) {
 }
 
 function editPlaceName() {
-  const data=loadData(); if(!data) return;
+  const data=loadEditing(); if(!data) return;
   data.placeName=document.getElementById('editNameInput').value;
-  persist(data);
-  cloudSyncCurrentDebounced();
+  persistEditing(data);
+  cloudSyncEditingDebounced();
   renderPlacesList(loadHistory(), data.id);
 }
 function savePlaceName() {
@@ -2020,6 +2058,29 @@ function cloudSyncCurrentDebounced() {
   if (!CLOUD.enabled) return;
   clearTimeout(S._cloudT);
   S._cloudT = setTimeout(() => { const d=loadData(); if(d) uploadPhotoToCloud(d.id, d.photo); }, 1500);
+}
+function cloudSyncEditingDebounced() {
+  if (!CLOUD.enabled) return;
+  clearTimeout(S._cloudTE);
+  S._cloudTE = setTimeout(() => { const d=loadEditing(); if(d) uploadPhotoToCloud(d.id, d.photo); }, 1500);
+}
+
+// Force-update: clear all caches, unregister SW, hard reload
+async function forceUpdateApp() {
+  showToast('Actualizando…');
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch {}
+  // bypass cache with a fresh query string
+  const url = location.pathname + '?v=' + Date.now();
+  location.replace(url);
 }
 
 function openCloudSettings() {
