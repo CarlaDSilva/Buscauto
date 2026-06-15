@@ -341,12 +341,13 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 /* ── MANUAL PIN PICKER ── */
 #pinPicker { position: fixed; inset: 0; z-index: 750; background: var(--bg); display: none; flex-direction: column; }
 #pinPicker.show { display: flex; }
+#pinPicker.show { display: flex; }
 .pin-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
 .pin-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
-.pin-map { flex: 1; min-height: 0; }
-.pin-map-wrap { flex: 1; min-height: 0; position: relative; display: flex; }
+.pin-map { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pin-map-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; overflow: hidden; }
 .pin-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 500; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
-.pin-map #pinPickerMap { width: 100%; height: 100%; }
+#pinPickerMap { width: 100% !important; height: 100% !important; min-height: 300px; }
 .pin-actions { flex-shrink: 0; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
 .pin-hint { font-size: 0.9rem; color: var(--text3); text-align: center; }
 
@@ -364,6 +365,7 @@ header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--bo
 .fs-arrow { transition: transform 0.4s cubic-bezier(.25,.8,.25,1); }
 .fs-dist { font-size: 2.4rem; font-weight: 800; color: var(--green2); font-family: 'DM Mono', monospace; }
 .fs-accuracy { font-size: 0.82rem; font-family: 'DM Mono', monospace; color: var(--text3); margin-top: 2px; }
+.fs-too-close { display:flex; align-items:center; gap:10px; background:rgba(196,24,80,0.18); border:1px solid var(--red2); border-radius:14px; padding:14px 18px; color:var(--text); font-size:1rem; font-weight:600; text-align:center; margin-bottom:8px; }
 
 /* path canvas */
 .canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
@@ -746,6 +748,10 @@ if ('serviceWorker' in navigator) {
   </div>
   <div class="fs-map" id="fsMapHolder"></div>
   <div class="fs-guide">
+    <div class="fs-too-close" id="tooCloseMsg" style="display:none">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Estás muy cerca · busca a tu alrededor
+    </div>
     <div class="fs-arrow" id="fsArrow">
       <svg width="120" height="120" viewBox="0 0 64 64" fill="none">
         <circle cx="32" cy="32" r="30" fill="rgba(143,184,99,0.16)" stroke="#8fb863" stroke-width="2.5"/>
@@ -787,7 +793,7 @@ if ('serviceWorker' in navigator) {
   </button>
   <button class="nav-btn" id="nav-guardar" onclick="switchTab('guardar')">
     <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-    <span class="nav-label">Estacionar</span>
+    <span class="nav-label">Guardar</span>
   </button>
   <button class="nav-btn" id="nav-ajustes" onclick="switchTab('ajustes')">
     <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1102,24 +1108,34 @@ function applyAutoName(id, lat, lon) {
 function startManualPin() {
   document.getElementById('pinPicker').classList.add('show');
   document.getElementById('pinConfirmBtn').disabled = false;
-  document.getElementById('pinHint').textContent = 'Arrastra el mapa hasta el lugar';
+  document.getElementById('pinHint').textContent = 'Arrastra el mapa hasta el lugar del coche';
+
+  // Use a longer delay on Android to let the DOM paint before Leaflet measures
   setTimeout(() => {
+    const el = document.getElementById('pinPickerMap');
+    if (!el) return;
+
     if (!S.pinPickerMap) {
-      const el = document.getElementById('pinPickerMap');
-      if (!el || !window.L) return;
+      if (!window.L) return;
       S.pinPickerMap = L.map(el, { zoomControl:true, attributionControl:false });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.pinPickerMap);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(S.pinPickerMap);
     }
-    S.pinPickerMap.invalidateSize();
-    // start centred on a saved place or your current location
+
+    // Force size recalculation — critical on Android where the element may have 0 height initially
+    S.pinPickerMap.invalidateSize({ pan: false });
+    setTimeout(() => S.pinPickerMap.invalidateSize({ pan: false }), 400);
+
     const d = loadData();
-    if (d?.gps) S.pinPickerMap.setView([d.gps.lat,d.gps.lon], 18);
-    else navigator.geolocation?.getCurrentPosition(
-      p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 18),
-      () => S.pinPickerMap.setView([40.4168,-3.7038], 6),
-      { enableHighAccuracy:true, timeout:6000 }
-    );
-  }, 200);
+    if (d?.gps) {
+      S.pinPickerMap.setView([d.gps.lat, d.gps.lon], 18);
+    } else {
+      navigator.geolocation?.getCurrentPosition(
+        p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 18),
+        () => S.pinPickerMap.setView([40.4168, -3.7038], 6),
+        { enableHighAccuracy:true, timeout:6000 }
+      );
+    }
+  }, 150);
 }
 
 function cancelManualPin() {
@@ -1879,18 +1895,27 @@ function onPosUpdate(pos) {
 
   // Bearing from you to the car (geographic), then make it RELATIVE to where
   // the phone is pointing by subtracting the phone's compass heading.
-  if (dist > 8 && acc < 40) {
-    let geoBearing = getBearing(lat,lon,data.gps.lat,data.gps.lon);
-    let rel = geoBearing - (S._phoneHeading || 0);
-    rel = ((rel % 360) + 360) % 360;
-    if (S._lastBearing == null) S._lastBearing = rel;
-    let diff = ((rel - S._lastBearing + 540) % 360) - 180;
-    S._lastBearing = (S._lastBearing + diff * 0.5 + 360) % 360;
-    const rot = `rotate(${S._lastBearing}deg)`;
-    const oa = document.getElementById('overlayArrow'); if (oa){ oa.style.transform=rot; oa.style.opacity='1'; }
-    const fa = document.getElementById('fsArrow'); if (fa) fa.style.transform=rot;
-  } else if (dist <= 8) {
-    const oa = document.getElementById('overlayArrow'); if (oa) oa.style.opacity='0.25';
+  // If very close AND GPS is accurate enough to confirm it: show "look around" message
+  const tooClose = dist < 12 && acc < 25;
+  const noiseWarning = dist > 8 && acc >= 40; // far but bad GPS
+  const tooCloseEl = document.getElementById('tooCloseMsg');
+  if (tooClose) {
+    if (tooCloseEl) tooCloseEl.style.display='flex';
+    const oa = document.getElementById('overlayArrow'); if (oa) oa.style.opacity='0';
+    const fa = document.getElementById('fsArrow'); if (fa) fa.style.opacity='0';
+  } else {
+    if (tooCloseEl) tooCloseEl.style.display='none';
+    if (!noiseWarning) {
+      let geoBearing = getBearing(lat,lon,data.gps.lat,data.gps.lon);
+      let rel = geoBearing - (S._phoneHeading || 0);
+      rel = ((rel % 360) + 360) % 360;
+      if (S._lastBearing == null) S._lastBearing = rel;
+      let diff = ((rel - S._lastBearing + 540) % 360) - 180;
+      S._lastBearing = (S._lastBearing + diff * 0.5 + 360) % 360;
+      const rot = `rotate(${S._lastBearing}deg)`;
+      const oa = document.getElementById('overlayArrow'); if (oa){ oa.style.transform=rot; oa.style.opacity='1'; }
+      const fa = document.getElementById('fsArrow'); if (fa){ fa.style.transform=rot; fa.style.opacity='1'; }
+    }
   }
 
   // distance in fullscreen + accuracy hint
@@ -1905,7 +1930,23 @@ function onPosUpdate(pos) {
 
   // proximity alert (<20 m)
   const flash=document.getElementById('proximityFlash');
-  if (dist < 20) { flash.classList.add('show'); if (navigator.vibrate) navigator.vibrate(150); }
+  if (dist < 20) {
+    flash.classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([200,100,200]);
+    // Audio beep as fallback (works on MIUI where vibrate is blocked)
+    if (!S._lastBeep || Date.now()-S._lastBeep > 3000) {
+      S._lastBeep = Date.now();
+      try {
+        const ctx = new (window.AudioContext||window.webkitAudioContext)();
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; g.gain.setValueAtTime(0.3,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+        o.start(ctx.currentTime); o.stop(ctx.currentTime+0.4);
+        setTimeout(()=>ctx.close(),600);
+      } catch {}
+    }
+  }
   else flash.classList.remove('show');
 
   if (S.mapBuscar) {
