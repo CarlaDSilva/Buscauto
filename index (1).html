@@ -1,0 +1,2283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a0810">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BuscAuto">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BuscAuto</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #1a0810;
+  --surface:   #260b16;
+  --surface2:  #32101e;
+  --surface3:  #3e1526;
+  --red:       #c41850;
+  --red2:      #e83a6a;
+  --red-dim:   rgba(204,34,68,0.15);
+  --green:     #6fa845;
+  --green2:    #8fb863;
+  --green3:    #5a7e35;
+  --green-dim: rgba(126,200,90,0.12);
+  --text:      #f4f8ee;
+  --text2:     #c2d0b2;
+  --text3:     #8a9c80;
+  --border:    rgba(126,200,90,0.14);
+  --border2:   rgba(126,200,90,0.07);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { font-size: 100%; } /* follows the phone's font-size accessibility setting */
+body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; font-weight: 500; }
+
+/* ══ SPLASH ══════════════════════════════════════════════ */
+#splash {
+  position: fixed; inset: 0; z-index: 999;
+  background: #1a0810;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 40px;
+  transition: opacity 0.6s ease;
+}
+#splash.hide { opacity: 0; pointer-events: none; }
+
+.splash-icon-wrap {
+  position: relative;
+  width: 160px; height: 160px;
+  flex-shrink: 0;
+}
+
+/* compass ring rotates with compass-like jitter */
+.splash-compass-ring {
+  position: absolute; inset: 0;
+  animation: cjitter 5s ease-in-out infinite;
+}
+@keyframes cjitter {
+  0%   { transform: rotate(0deg); }
+  18%  { transform: rotate(14deg); }
+  36%  { transform: rotate(-9deg); }
+  55%  { transform: rotate(20deg); }
+  73%  { transform: rotate(-6deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* wheel spins steadily */
+.splash-wheel-inner {
+  position: absolute;
+  top: 36px; left: 36px;
+  width: calc(100% - 72px);
+  height: calc(100% - 72px);
+  animation: wspin 1.8s linear infinite;
+}
+@keyframes wspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* text block — completely separate from icon */
+.splash-text {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.splash-name {
+  font-size: 2.6rem; font-weight: 800;
+  letter-spacing: -0.02em; color: var(--text);
+  line-height: 1;
+}
+.splash-name span { color: var(--red2); }
+.splash-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--text3);
+}
+
+/* ══ PERMISSION PROMPT ════════════════════════════════════ */
+#permPrompt {
+  position: fixed; inset: 0; z-index: 998;
+  background: rgba(8,14,9,0.92);
+  display: none; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#permPrompt.show { display: flex; }
+.perm-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 28px 24px;
+  max-width: 340px; width: 100%; text-align: center;
+}
+.perm-icon { color: var(--green3); margin-bottom: 16px; }
+.perm-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+.perm-desc { font-size: 0.82rem; color: var(--text2); line-height: 1.6; margin-bottom: 22px; }
+.perm-note { font-size: 0.72rem; color: var(--text3); margin-bottom: 20px; font-family: 'DM Mono', monospace; line-height: 1.5; }
+
+/* ══ APP ═════════════════════════════════════════════════ */
+.app {
+  position: relative; z-index: 1;
+  max-width: 430px; margin: 0 auto;
+  height: 100dvh; display: flex; flex-direction: column;
+}
+
+header { padding: 18px 20px 0; flex-shrink: 0; border-bottom: 1px solid var(--border2); }
+.header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 14px;
+}
+.saved-pill {
+  display: none; align-items: center; gap: 6px;
+  background: var(--green-dim); border: 1px solid rgba(126,200,90,0.25);
+  border-radius: 20px; padding: 6px 13px;
+  font-size: 0.92rem; color: var(--green2);
+  font-family: 'DM Mono', monospace;
+}
+.saved-pill.show { display: flex; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--border2); flex-shrink: 0; }
+.tab {
+  flex: 1; background: none; border: none;
+  padding: 14px 4px 12px; color: var(--text3);
+  font-family: 'Outfit', sans-serif; font-size: 0.96rem; font-weight: 600;
+  letter-spacing: 0.03em; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.tab svg { opacity: 0.5; transition: opacity 0.2s; flex-shrink: 0; }
+.tab.active { color: var(--green2); border-bottom-color: var(--green2); }
+.tab.active svg { opacity: 1; }
+
+.scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 18px 18px 110px;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+.section { display: none; }
+.section.active { display: block; }
+
+/* ══ CARD ════════════════════════════════════════════════ */
+.card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 16px; padding: 18px; margin-bottom: 14px;
+}
+.card-label {
+  font-size: 0.9rem; font-family: 'DM Mono', monospace;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-label svg { color: var(--green3); }
+
+/* ══ DATA ROW ════════════════════════════════════════════ */
+.data-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 0; border-bottom: 1px solid var(--border2);
+}
+.data-row:last-child { border-bottom: none; padding-bottom: 0; }
+.data-key { font-size: 1.02rem; color: var(--text2); }
+.data-val { font-size: 1.02rem; color: var(--text); text-align: right; font-family: 'DM Mono', monospace; max-width: 62%; word-break: break-all; }
+
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text3); margin-right: 6px; vertical-align: middle; }
+.dot.ok  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot.warn { background: #d4a04a; }
+.dot.err  { background: var(--red2); }
+
+/* ══ PHOTO ════════════════════════════════════════════════ */
+.photo-zone {
+  width: 100%; aspect-ratio: 16/9;
+  border: 1.5px dashed var(--border); border-radius: 12px;
+  background: var(--surface2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: border-color 0.2s;
+}
+.photo-zone:active { border-color: var(--green3); }
+.photo-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-overlay {
+  position: absolute; inset: 0; background: rgba(8,14,9,0.55);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  opacity: 0; transition: opacity 0.2s; border-radius: 11px;
+}
+.photo-zone:not(.has-photo) .photo-overlay { opacity: 1; }
+.photo-zone.has-photo:active .photo-overlay { opacity: 1; }
+.photo-hint { font-size: 1rem; color: var(--green3); }
+.photo-btns { display: flex; gap: 14px; margin-top: 16px; }
+.photo-btns .btn { flex: 1 1 0; min-width: 0; }
+.photo-zone { margin-bottom: 4px; }
+#photoInput { display: none; }
+
+.exif-badge {
+  display: none; align-items: center; gap: 6px;
+  background: var(--green-dim); border: 1px solid rgba(126,200,90,0.25);
+  border-radius: 8px; padding: 8px 12px;
+  font-size: 0.78rem; color: var(--green2); margin-top: 10px;
+}
+.exif-badge.show { display: flex; }
+
+/* ══ BUTTONS ══════════════════════════════════════════════ */
+.btn {
+  width: 100%; padding: 17px; border: none; border-radius: 12px;
+  font-family: 'Outfit', sans-serif; font-size: 1.08rem; font-weight: 700;
+  letter-spacing: 0.02em; cursor: pointer; transition: all 0.18s;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.btn + .btn { margin-top: 10px; }
+.btn-primary { background: var(--red); color: var(--text); border: 1px solid var(--red2); }
+.btn-primary:active { background: var(--red2); transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.35; pointer-events: none; }
+.btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); font-weight: 600; }
+.btn-secondary:active { background: var(--surface3); }
+.btn-green { background: var(--green3); color: var(--bg); border: 1px solid var(--green); }
+.btn-green:active { filter: brightness(1.1); }
+.btn-danger { background: transparent; color: var(--red2); border: 1px solid rgba(204,34,68,0.3); font-weight: 600; }
+
+/* ══ PEDOMETER ════════════════════════════════════════════ */
+.steps-big { text-align: center; padding: 14px 0 8px; }
+.steps-num { font-size: 5.5rem; line-height: 1; font-weight: 800; color: var(--green2); }
+.steps-unit { font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.metric-box { background: var(--surface2); border-radius: 10px; padding: 14px; text-align: center; }
+.metric-val { font-size: 1.4rem; font-weight: 700; color: var(--green2); }
+.metric-unit { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-top: 3px; }
+
+.rec-badge { display: none; align-items: center; gap: 7px; background: var(--red-dim); border: 1px solid rgba(204,34,68,0.3); border-radius: 20px; padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--red2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.rec-badge.show { display: inline-flex; }
+.rec-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red2); animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
+
+/* countdown */
+.countdown-bar { display: none; background: var(--surface2); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; align-items: center; justify-content: space-between; }
+.countdown-bar.show { display: flex; }
+.countdown-text { font-size: 0.94rem; color: var(--text2); }
+.countdown-num { font-size: 1.2rem; font-weight: 700; color: var(--green2); font-family: 'DM Mono', monospace; }
+
+/* compass */
+.compass-wrap { display: flex; justify-content: center; padding: 10px 0; }
+.compass { width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--border); background: radial-gradient(circle at 50% 50%, var(--surface2), var(--surface)); position: relative; }
+.cn { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 0.65rem; font-weight: 600; color: var(--red2); z-index: 2; }
+.compass-needle { position: absolute; top: 50%; left: 50%; width: 2px; height: 30px; margin-left: -1px; margin-top: -30px; transform-origin: bottom center; transition: transform 0.3s ease; z-index: 1; }
+.nn { width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:22px solid var(--red2);position:absolute;bottom:0;left:-4px; }
+.ns { width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:14px solid var(--green3);position:absolute;top:0;left:-3px; }
+
+/* compact stat bar */
+.stat-bar { display: flex; align-items: center; justify-content: space-around; background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 12px 8px; margin-bottom: 12px; }
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; }
+.stat-num { font-size: 1.5rem; font-weight: 700; color: var(--green2); font-family: 'DM Mono', monospace; }
+.stat-lbl { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); }
+.stat-sep { width: 1px; height: 28px; background: var(--border2); }
+.mini-compass { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); position: relative; display: inline-block; }
+.mini-needle { position: absolute; top: 50%; left: 50%; width: 2px; height: 9px; margin-left: -1px; margin-top: -9px; transform-origin: bottom center; background: linear-gradient(to top, var(--green3), var(--red2)); border-radius: 1px; transition: transform 0.3s ease; }
+
+/* history select */
+.history-select { width: 100%; padding: 13px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 600; margin-bottom: 14px; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238fb863' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+
+/* map shell with overlay */
+.map-shell { position: relative; width: 100%; height: 160px; border-radius: 14px; overflow: hidden; background: var(--surface2); margin-bottom: 16px; }
+#mapBuscar { width: 100%; height: 100%; }
+.map-overlay { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 6px; background: rgba(26,8,16,0.85); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; pointer-events: none; }
+.overlay-arrow { transition: transform 0.45s cubic-bezier(.25,.8,.25,1); }
+.overlay-dist { font-size: 1.35rem; font-weight: 800; color: #fff; font-family: 'DM Mono', monospace; }
+.proximity-flash { position: absolute; inset: 0; z-index: 600; display: none; align-items: center; justify-content: center; background: rgba(111,168,69,0.35); color: #fff; font-size: 1.2rem; font-weight: 800; pointer-events: none; animation: prox 0.8s infinite; }
+.proximity-flash.show { display: flex; }
+@keyframes prox { 0%,100%{background:rgba(111,168,69,0.15)} 50%{background:rgba(111,168,69,0.45)} }
+.park-time { font-size: 0.96rem; color: var(--text3); margin-top: 8px; font-family: 'DM Mono', monospace; }
+
+/* gps hint in Guardar */
+.gps-hint { display: flex; align-items: center; gap: 8px; font-size: 0.98rem; color: var(--text2); }
+
+/* maps row: two buttons side by side */
+.maps-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.maps-row .maps-link { flex: 1; margin-bottom: 0; font-size: 0.96rem; }
+
+/* button spacing in buscar — generous air */
+#savedData > .btn, #savedData > .maps-row, #savedData > .map-shell, #savedData > .places-section, #savedData > .radius-card, #savedData > .tracking-badge { margin-bottom: 16px; }
+#savedData .btn + .btn { margin-top: 0; }
+
+/* radius card */
+.radius-card { padding: 16px 18px; }
+.radius-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.radius-title { font-size: 1rem; font-weight: 600; color: var(--text2); }
+.radius-val { font-size: 1.05rem; font-weight: 700; color: var(--green2); font-family: 'DM Mono', monospace; }
+.radius-slider { width: 100%; -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: var(--surface3); outline: none; margin: 6px 0 14px; }
+.radius-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--green); border: 3px solid var(--surface); cursor: pointer; }
+.radius-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--green); border: 3px solid var(--surface); cursor: pointer; }
+.radius-shape-toggle { display: flex; gap: 8px; }
+.shape-btn { flex: 1; padding: 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.shape-btn.active { background: var(--green-dim); color: var(--green2); border-color: var(--green3); }
+
+/* places list */
+.places-section { margin-bottom: 14px; }
+.places-title { font-size: 0.84rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+.place-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+.place-item.active { border-color: var(--green3); background: var(--green-dim); }
+.place-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface2); }
+.place-info { flex: 1; min-width: 0; }
+.place-name { font-size: 1.04rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place-meta { font-size: 0.84rem; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.place-del { flex-shrink:0; background:transparent; border:none; color:var(--red2); padding:8px; cursor:pointer; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.place-del:active { background:rgba(204,34,68,0.12); }
+.cloud-row { display:flex; gap:12px; margin-top:12px; }
+.cloud-row .btn { margin-bottom:0; }
+.app-ver { text-align:center; font-size:0.78rem; color:var(--text3); font-family:'DM Mono',monospace; margin-bottom:18px; }
+
+/* ── SIMPLE ESTACIONAR ── */
+.estacionar-simple { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.park-photo { width: 100%; aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border2); position: relative; cursor: pointer; }
+.park-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.park-photo-empty { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text3); font-size: 0.95rem; }
+.big-save { padding: 20px; font-size: 1.18rem; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.big-save-main { font-size: 1.1rem; font-weight: 700; }
+.big-save-sub { font-size: 0.82rem; font-weight: 400; opacity: 0.82; }
+.btn-ghost-link { background: transparent; border: none; color: var(--text2); font-weight: 600; font-size: 0.95rem; padding: 12px; }
+.btn-ghost-link:active { color: var(--green2); }
+.park-note { font-size: 1rem; color: var(--text2); font-style: italic; margin-top: 8px; line-height: 1.4; }
+
+/* ── MANUAL PIN PICKER ── */
+#pinPicker { position: fixed; inset: 0; z-index: 750; background: var(--bg); display: none; flex-direction: column; }
+#pinPicker.show { display: flex; }
+#pinPicker.show { display: flex; }
+.pin-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
+.pin-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.pin-map { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pin-map-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.pin-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 500; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+#pinPickerMap { width: 100% !important; height: 100% !important; min-height: 300px; }
+.pin-actions { flex-shrink: 0; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+.pin-hint { font-size: 0.9rem; color: var(--text3); text-align: center; }
+
+/* ── FULLSCREEN SEARCH MODE ── */
+#searchFs { position: fixed; inset: 0; z-index: 700; background: var(--bg); display: none; flex-direction: column; }
+#searchFs.show { display: flex; }
+.fs-top { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px; gap: 12px; flex-shrink: 0; }
+.fs-place { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fs-photo { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; cursor: pointer; border: 1px solid var(--border); }
+.fs-name { font-size: 1.2rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-close { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fs-map { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.fs-map #mapBuscar { position:absolute; top:-25%; left:-25%; width: 150%; height: 150%; transition: transform 0.3s ease-out; }
+.fs-guide { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 16px max(28px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--surface) 40%); }
+.fs-arrow { transition: transform 0.4s cubic-bezier(.25,.8,.25,1); }
+.fs-dist { font-size: 2.4rem; font-weight: 800; color: var(--green2); font-family: 'DM Mono', monospace; }
+.fs-walk-time { font-size: 1.05rem; font-weight: 600; color: var(--text); margin-top: 2px; }
+.fs-accuracy { font-size: 0.82rem; font-family: 'DM Mono', monospace; color: var(--text3); margin-top: 2px; }
+.fs-too-close { display:flex; align-items:center; gap:10px; background:rgba(196,24,80,0.18); border:1px solid var(--red2); border-radius:14px; padding:14px 18px; color:var(--text); font-size:1rem; font-weight:600; text-align:center; margin-bottom:8px; }
+
+/* path canvas */
+.canvas-wrap { background: var(--surface2); border-radius: 10px; padding: 10px; overflow: hidden; }
+#pathCanvas, #savedPathCanvas { width: 100%; display: block; border-radius: 6px; }
+
+/* ══ DIRECTION ════════════════════════════════════════════ */
+.dir-main { display: flex; flex-direction: column; align-items: center; padding: 20px 0 14px; gap: 12px; }
+.dir-arrow-wrap { width: 110px; height: 110px; border-radius: 50%; background: var(--surface2); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; }
+.dir-arrow-inner { transition: transform 0.15s cubic-bezier(.25,.8,.25,1); }
+.dir-dist { font-size: 2rem; font-weight: 800; color: var(--green2); }
+.dir-label { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; text-align: center; }
+
+.tracking-badge { display: none; align-items: center; gap: 6px; background: var(--green-dim); border: 1px solid rgba(126,200,90,0.3); border-radius: 20px; padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--green2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.tracking-badge.show { display: inline-flex; }
+.track-pulse { width:7px;height:7px;border-radius:50%;background:var(--green);animation:tpulse 0.8s infinite; }
+@keyframes tpulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
+
+/* ══ PHOTO MODAL ══════════════════════════════════════════ */
+#photoModal { position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
+#photoModal.show { display: flex; }
+#photoZoomWrap { flex:1; width:100%; overflow:hidden; display:flex; align-items:center; justify-content:center; touch-action:none; }
+#photoModalImg { max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; transform-origin: center center; transition: transform 0.05s linear; will-change: transform; }
+.modal-close { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 32px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; flex-shrink:0; }
+.zoom-hint { color: var(--text3); font-size: 0.72rem; font-family: 'DM Mono', monospace; }
+
+/* place name */
+.place-input { width: 100%; padding: 15px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 500; outline: none; transition: border-color 0.2s; margin-top: 10px; }
+.place-input:focus { border-color: var(--green3); }
+.place-input::placeholder { color: var(--text3); }
+
+/* saved photo thumb */
+.saved-photo-thumb { width: 100%; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; background: var(--surface2); cursor: pointer; position: relative; }
+.saved-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-expand { position: absolute; bottom: 8px; right: 8px; background: rgba(8,14,9,0.75); border-radius: 6px; padding: 5px 9px; display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--green2); font-family: 'DM Mono', monospace; }
+.no-photo-ph { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text3); font-size: 0.78rem; }
+
+/* empty */
+.empty { text-align: center; padding: 50px 16px; }
+.empty-icon { color: var(--text3); margin-bottom: 16px; }
+.empty-txt { font-size: 1.06rem; color: var(--text3); letter-spacing: 0.04em; line-height: 1.8; }
+
+/* maps */
+.maps-link { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; color: var(--text2); text-decoration: none; font-size: 0.96rem; font-weight: 600; transition: all 0.2s; margin-bottom: 10px; }
+.maps-link:active { border-color: var(--green3); color: var(--green2); }
+
+/* toast */
+.toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 22px; font-size: 0.98rem; color: var(--green2); font-family: 'DM Mono', monospace; opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 300; white-space: nowrap; max-width: 92vw; text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* nav */
+.bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--surface); border-top: 1px solid var(--border2); display: flex; padding: 8px 0 max(16px, env(safe-area-inset-bottom)); z-index: 200; }
+.nav-btn { flex: 1; background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; cursor: pointer; color: var(--text3); transition: color 0.2s; }
+.nav-btn.active { color: var(--green2); }
+.nav-label { font-family: 'DM Mono', monospace; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+.gap { height: 10px; }
+</style>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.update(); // check for a newer SW each launch
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            nw.postMessage('skipWaiting');
+          }
+        });
+      });
+    }).catch(()=>{});
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return; refreshing = true; location.reload();
+    });
+  });
+}
+</script>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-icon-wrap">
+    <!-- Compass ring — jitters like a real compass -->
+    <svg class="splash-compass-ring" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%">
+      <!-- outer ring -->
+      <circle cx="80" cy="80" r="76" stroke="#a8c878" stroke-width="2.5" fill="none"/>
+      <circle cx="80" cy="80" r="70" stroke="#7aac50" stroke-width="1" fill="none" opacity=".5"/>
+      <!-- cardinal ticks -->
+      <line x1="80" y1="3"   x2="80" y2="16"  stroke="#c8e898" stroke-width="3"   stroke-linecap="round"/>
+      <line x1="80" y1="144" x2="80" y2="157" stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <line x1="3"  y1="80"  x2="16" y2="80"  stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <line x1="144" y1="80" x2="157" y2="80" stroke="#7aac50" stroke-width="2"   stroke-linecap="round"/>
+      <!-- N S E O labels -->
+      <text x="80" y="32" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="700" fill="#cc2244">N</text>
+      <text x="80" y="154" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">S</text>
+      <text x="152" y="85" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">E</text>
+      <text x="8"   y="85" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#7aac50" opacity=".8">O</text>
+      <!-- needle N (burgundy) -->
+      <polygon points="80,38 84.5,68 80,64 75.5,68" fill="#cc2244"/>
+      <!-- needle S (dark pistachio) -->
+      <polygon points="80,122 75.5,92 80,96 84.5,92" fill="#5a8c30" opacity=".8"/>
+      <!-- pivot -->
+      <circle cx="80" cy="80" r="4.5" fill="#c8e898"/>
+    </svg>
+
+    <!-- Tyre wheel — spins steadily -->
+    <svg class="splash-wheel-inner" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"
+         style="position:absolute;top:36px;left:36px;width:calc(100% - 72px);height:calc(100% - 72px)">
+      <!-- rubber tyre -->
+      <circle cx="55" cy="55" r="52" fill="#1a0a0c"/>
+      <!-- tyre outer edge -->
+      <circle cx="55" cy="55" r="52" fill="none" stroke="#7a1828" stroke-width="1.5"/>
+      <!-- tyre tread (dashed ring) -->
+      <circle cx="55" cy="55" r="45" fill="none" stroke="#2a0e14" stroke-width="13" stroke-dasharray="9 5.8" stroke-linecap="butt"/>
+      <!-- tyre inner wall -->
+      <circle cx="55" cy="55" r="38" fill="none" stroke="#6a1422" stroke-width="1"/>
+      <!-- alloy rim fill -->
+      <circle cx="55" cy="55" r="37" fill="#6b1828"/>
+      <!-- 5 spokes — mathematically centered -->
+      <g stroke-linecap="round">
+        <!-- spoke 0 → up -->
+        <line x1="55.0" y1="42.0" x2="55.0" y2="17.0" stroke="#8a2038" stroke-width="7"/>
+        <line x1="55.0" y1="42.0" x2="55.0" y2="17.0" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 1 → upper right -->
+        <line x1="67.4" y1="51.0" x2="91.1" y2="43.3" stroke="#8a2038" stroke-width="7"/>
+        <line x1="67.4" y1="51.0" x2="91.1" y2="43.3" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 2 → lower right -->
+        <line x1="62.6" y1="65.5" x2="77.3" y2="85.7" stroke="#8a2038" stroke-width="7"/>
+        <line x1="62.6" y1="65.5" x2="77.3" y2="85.7" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 3 → lower left -->
+        <line x1="47.4" y1="65.5" x2="32.7" y2="85.7" stroke="#8a2038" stroke-width="7"/>
+        <line x1="47.4" y1="65.5" x2="32.7" y2="85.7" stroke="#c04060" stroke-width="3"/>
+        <!-- spoke 4 → upper left -->
+        <line x1="42.6" y1="51.0" x2="18.9" y2="43.3" stroke="#8a2038" stroke-width="7"/>
+        <line x1="42.6" y1="51.0" x2="18.9" y2="43.3" stroke="#c04060" stroke-width="3"/>
+      </g>
+      <!-- hub cap rings -->
+      <circle cx="55" cy="55" r="13" fill="#3a0e18"/>
+      <circle cx="55" cy="55" r="9"  fill="#8a2030"/>
+      <circle cx="55" cy="55" r="5"  fill="#c04060"/>
+      <circle cx="55" cy="55" r="2.5" fill="#c8e898"/>
+    </svg>
+  </div>
+
+  <div class="splash-text">
+    <div class="splash-name">Busc<span>Auto</span></div>
+    <div class="splash-sub">Localizador de vehículo</div>
+  </div>
+</div>
+
+<!-- PERMISSION PROMPT (iOS motion) -->
+<div id="permPrompt">
+  <div class="perm-box">
+    <div class="perm-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a7 7 0 0 1 7 7c0 5.25-7 13-7 13S5 14.25 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    </div>
+    <div class="perm-title">Permiso de movimiento</div>
+    <div class="perm-desc">BuscAuto necesita acceder al sensor de movimiento para contar pasos y registrar el trayecto desde donde aparques.</div>
+    <div class="perm-note">Solo se te pedirá esta vez. iOS mostrará su propio aviso al tocar "Permitir".</div>
+    <button class="btn btn-green" onclick="requestMotionPermission()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Permitir
+    </button>
+    <div class="gap"></div>
+    <button class="btn btn-secondary" onclick="dismissPermPrompt()">Omitir por ahora</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <header>
+    <div class="header-row">
+      <div style="font-family:'DM Mono',monospace;font-size:0.86rem;color:var(--text2);letter-spacing:.12em;text-transform:uppercase">Localizador</div>
+      <button class="saved-pill" id="savedPill" onclick="switchTab('buscar')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        Coche guardado
+      </button>
+    </div>
+  </header>
+
+
+  <div class="scroll">
+
+    <!-- GUARDAR (Estacionar) — simple -->
+    <div class="section" id="sec-guardar">
+      <div class="estacionar-simple">
+        <!-- Big photo of the car/place (only shown once a photo exists) -->
+        <div class="park-photo" id="parkPhoto" onclick="openPhotoModal()" style="display:none"></div>
+
+        <!-- Optional name -->
+        <input class="place-input" id="placeNameInput" type="text" placeholder="Nombre del lugar (opcional)" oninput="savePlaceName()" style="margin-top:0">
+
+        <!-- One big action -->
+        <button class="btn btn-green big-save" onclick="document.getElementById('photoInputCamera').click()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span class="big-save-main">Acabo de estacionar</span>
+          <span class="big-save-sub">Hace una foto y guarda tu ubicación</span>
+        </button>
+
+        <button class="btn btn-secondary" onclick="document.getElementById('photoInputGallery').click()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Subir foto del estacionamiento
+        </button>
+
+        <!-- No-photo option: mark on map -->
+        <button class="btn btn-secondary" onclick="startManualPin()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Marcar en el mapa (sin foto)
+        </button>
+        <textarea class="place-input" id="noteInput" placeholder="Nota: dónde estacionaste (opcional)" oninput="saveNote()" rows="2" style="resize:none"></textarea>
+
+        <input type="file" id="photoInputCamera" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="photoInputGallery" accept="image/*" style="display:none">
+
+        <div class="park-time" id="parkTime" style="text-align:center"></div>
+
+        <div class="exif-badge" id="exifBadge" style="margin-top:4px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Ubicación tomada de la foto
+        </div>
+
+        <!-- link to advanced settings -->
+        <button class="btn btn-ghost-link" onclick="switchTab('ajustes')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Ajustes del lugar y radio
+        </button>
+      </div>
+
+      <!-- TRAYECTO (auto, hidden until parking) -->
+      <div id="trayectoBlock" style="display:none;margin-top:16px">
+        <div class="rec-badge" id="recBadge"><div class="rec-dot"></div> Grabando trayecto</div>
+        <div id="mapTrayecto" style="width:100%;height:240px;border-radius:14px;overflow:hidden;background:var(--surface2);margin-bottom:12px;"></div>
+        <div class="stat-bar">
+          <div class="stat-item"><span class="stat-num" id="stepCount">0</span><span class="stat-lbl">pasos</span></div>
+          <div class="stat-sep"></div>
+          <div class="stat-item"><span class="stat-num" id="distMeters">0</span><span class="stat-lbl">metros</span></div>
+          <div class="stat-sep"></div>
+          <div class="stat-item"><span class="stat-num" id="distTime">0:15</span><span class="stat-lbl">restante</span></div>
+          <div class="stat-sep"></div>
+          <div class="stat-item">
+            <span class="mini-compass" id="miniCompass"><span class="mini-needle" id="miniNeedle"></span></span>
+            <span class="stat-lbl" id="compassDeg">—</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="stopPedoBtn" onclick="stopPedometer()" style="display:none;margin-top:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          Detener trayecto
+        </button>
+      </div>
+
+      <span id="gpsLat" style="display:none"></span><span id="gpsLon" style="display:none"></span><span id="gpsAcc" style="display:none"></span>
+      <span id="gpsDot" style="display:none"></span><span id="gpsStatus" style="display:none"></span>
+    </div>
+
+    <!-- AJUSTES — advanced place editing -->
+    <div class="section" id="sec-ajustes">
+      <div class="places-title" style="margin-bottom:14px">Lugares guardados</div>
+      <div id="placesList"></div>
+      <div class="cloud-row" style="margin-bottom:18px">
+        <button class="btn btn-secondary" onclick="syncFromCloud()" style="flex:1">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronizar nube
+        </button>
+        <button class="btn btn-secondary" onclick="openCloudSettings()" style="flex:0 0 auto;width:54px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+      <button class="btn btn-secondary" onclick="forceUpdateApp()" style="margin-bottom:18px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Actualizar app a la última versión
+      </button>
+      <div class="app-ver">Versión <span id="appVer">4</span></div>
+
+      <!-- per-place editor (appears when a place is tapped) -->
+      <div id="placeEditor" style="display:none">
+        <div class="places-title" style="margin:8px 0 14px">Editar lugar</div>
+        <div class="card" style="padding:20px">
+          <input class="place-input" id="editNameInput" type="text" placeholder="Nombre del lugar..." oninput="editPlaceName()" style="margin-top:0">
+          <button class="btn btn-secondary" onclick="editPhoto()" style="margin-top:14px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Cambiar foto
+          </button>
+        </div>
+
+        <div class="map-shell" style="height:220px"><div id="mapEstacionar" style="width:100%;height:100%"></div></div>
+
+        <button class="btn btn-secondary" id="pinBtn" onclick="togglePinMode()" style="margin-bottom:18px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Ajustar ubicación con chincheta
+        </button>
+
+        <div class="card radius-card" style="margin-top:6px">
+          <div class="radius-head">
+            <span class="radius-title">Radio del lugar</span>
+            <span class="radius-val" id="radiusVal">40 m</span>
+          </div>
+          <input type="range" id="radiusSlider" class="radius-slider" min="10" max="200" step="5" value="40" oninput="onRadiusChange(this.value)">
+          <div class="radius-shape-toggle">
+            <button class="shape-btn active" id="shapeCircle" onclick="setRadiusShape('circle')">Círculo</button>
+            <button class="shape-btn" id="shapeRect" onclick="setRadiusShape('rect')">Línea</button>
+          </div>
+          <div id="rotationWrap" style="display:none;margin-top:14px">
+            <div class="radius-head">
+              <span class="radius-title">Ángulo de la línea</span>
+              <span class="radius-val" id="rotationVal">0°</span>
+            </div>
+            <input type="range" id="rotationSlider" class="radius-slider" min="0" max="180" step="5" value="0" oninput="onRotationChange(this.value)">
+          </div>
+        </div>
+
+        <button class="btn btn-danger" onclick="clearSaved()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          Borrar este lugar
+        </button>
+      </div>
+    </div>
+
+    <!-- BUSCAR -->
+    <div class="section active" id="sec-buscar">
+      <div id="noSaved" class="empty">
+        <div class="empty-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div class="empty-txt">Sin ubicación guardada.<br>Ve a "Guardar" primero.</div>
+      </div>
+
+      <div id="savedData" style="display:none">
+
+        <!-- Lugar estacionado: foto + nota + tiempo -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:14px" id="buscarPlaceName">Lugar estacionado</div>
+          <div class="saved-photo-thumb" id="savedPhotoThumb" onclick="openPhotoModal()">
+            <div class="no-photo-ph" id="noPhotoPlaceholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Sin foto</div>
+          </div>
+          <div class="park-time" id="parkTimeBuscar"></div>
+          <div class="park-note" id="buscarNote" style="display:none"></div>
+        </div>
+
+        <!-- LIVE MAP with overlay -->
+        <div class="map-shell">
+          <div id="mapBuscar"></div>
+          <div class="map-overlay" id="mapOverlay">
+            <div class="overlay-arrow" id="overlayArrow">
+              <svg width="58" height="58" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="30" fill="rgba(143,184,99,0.18)" stroke="#8fb863" stroke-width="2"/>
+                <path d="M32 12 L44 44 L32 36 L20 44 Z" fill="#8fb863" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="overlay-dist" id="overlayDist">—</div>
+          </div>
+          <div class="proximity-flash" id="proximityFlash">¡Estás muy cerca!</div>
+        </div>
+
+        <div class="tracking-badge" id="trackingBadge"><div class="track-pulse"></div> Rastreando en tiempo real</div>
+
+        <button class="btn btn-green" id="trackBtn" onclick="toggleTracking()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar coche
+        </button>
+
+        <!-- hidden links used by fullscreen mode -->
+        <a id="mapsLinkApple" href="#" style="display:none"></a>
+        <a id="mapsLinkGoogle" href="#" style="display:none"></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN SEARCH MODE -->
+<div id="searchFs">
+  <div class="fs-top">
+    <div class="fs-place">
+      <img id="fsPhoto" class="fs-photo" onclick="openPhotoModal()" alt="">
+      <div class="fs-name" id="fsPlaceName">Tu coche</div>
+    </div>
+    <button class="fs-close" onclick="stopTracking()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="fs-map" id="fsMapHolder"></div>
+  <div class="fs-guide">
+    <div class="fs-too-close" id="tooCloseMsg" style="display:none">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Estás muy cerca · busca a tu alrededor
+    </div>
+    <div class="fs-arrow" id="fsArrow">
+      <svg width="120" height="120" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="30" fill="rgba(143,184,99,0.16)" stroke="#8fb863" stroke-width="2.5"/>
+        <path d="M32 8 L46 48 L32 39 L18 48 Z" fill="#8fb863" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="fs-dist" id="fsDist">—</div>
+    <div class="fs-walk-time" id="fsWalkTime"></div>
+    <div class="fs-accuracy" id="fsAccuracy"></div>
+  </div>
+</div>
+
+<!-- MANUAL PIN PICKER -->
+<div id="pinPicker">
+  <div class="pin-top">
+    <div class="pin-title">Toca donde dejaste el coche</div>
+    <button class="fs-close" onclick="cancelManualPin()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="pin-map-wrap">
+    <div class="pin-map" id="pinPickerMap"></div>
+    <div class="pin-crosshair">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#c41850" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="rgba(196,24,80,0.25)"/><circle cx="12" cy="10" r="3" fill="#c41850"/></svg>
+    </div>
+  </div>
+  <div class="pin-actions">
+    <div class="pin-hint" id="pinHint">Arrastra el mapa y toca para colocar la chincheta</div>
+    <button class="btn btn-green" id="pinConfirmBtn" onclick="confirmManualPin()" disabled>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+      Guardar aquí el coche
+    </button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-buscar" onclick="switchTab('buscar')">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <span class="nav-label">Buscar</span>
+  </button>
+  <button class="nav-btn" id="nav-guardar" onclick="switchTab('guardar')">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    <span class="nav-label">Guardar</span>
+  </button>
+  <button class="nav-btn" id="nav-ajustes" onclick="switchTab('ajustes')">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="nav-label">Lugares</span>
+  </button>
+</nav>
+
+<div id="photoModal">
+  <div class="zoom-hint">Pellizca para ampliar · doble toque para reiniciar</div>
+  <div id="photoZoomWrap">
+    <img id="photoModalImg" src="" alt="Foto del lugar">
+  </div>
+  <button class="modal-close" onclick="closePhotoModal()">Cerrar</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+<script>
+// ── STATE ─────────────────────────────────────────────────
+const S = {
+  photo: null, gps: null, photoExifGps: null,
+  steps: 0, pedoActive: false, pedoTriggered: false,
+  pedoStartTime: null, pedoTimer: null, pedoAutoStop: null,
+  pathPoints: [{x:0,y:0}],
+  lastMag: null, lastStep: 0, heading: null,
+  tracking: false, trackInterval: null,
+  countdownTimer: null, countdownVal: 0,
+  motionGranted: false,   // set to true after iOS grants permission (also persisted)
+  mapTrayecto: null, mapBuscar: null,
+  buscarCarMarker: null, buscarYouMarker: null, buscarLine: null, radiusLayer: null,
+  mapEstacionar: null, estCarMarker: null,
+  pinMode: false, radiusShape: 'circle', editPhotoMode: false, editingId: null,
+  gpsPathPoints: []  // {lat,lon} real GPS points for map
+};
+
+const PEDO_MS = 3 * 60 * 1000;
+const DB_KEY   = 'buscauto_v1';      // current car (back-compat)
+const HIST_KEY = 'buscauto_hist';    // array of saved cars
+const CUR_KEY  = 'buscauto_cur';     // id of currently selected car
+
+// localStorage may be blocked inside some in-app webviews / iframes.
+// Fall back to an in-memory store so the app still works during the session.
+const MEM = {};
+let LS_OK = false;
+try {
+  const t='__buscauto_test__';
+  localStorage.setItem(t,'1'); localStorage.removeItem(t);
+  LS_OK = true;
+} catch { LS_OK = false; }
+
+const store = {
+  get(k){ if(LS_OK){ try{return localStorage.getItem(k)}catch{} } return (k in MEM)?MEM[k]:null; },
+  set(k,v){
+    MEM[k]=String(v);
+    if(LS_OK){
+      try{ localStorage.setItem(k,String(v)); return true; }
+      catch(e){ return false; } // quota exceeded etc.
+    }
+    return true;
+  },
+  del(k){ delete MEM[k]; if(LS_OK){ try{localStorage.removeItem(k)}catch{} } }
+};
+
+function loadHistory() {
+  try { return JSON.parse(store.get(HIST_KEY)) || []; } catch { return []; }
+}
+function saveHistory(arr) { return store.set(HIST_KEY, JSON.stringify(arr)); }
+function currentId() { return store.get(CUR_KEY); }
+function setCurrentId(id) { store.set(CUR_KEY, id); }
+
+// ── PERSIST ────────────────────────────────────────────────
+function persist(data) {
+  let hist = loadHistory();
+  let id = currentId();
+  if (!data.id) data.id = id || ('car_' + Date.now());
+  id = data.id;
+  setCurrentId(id);
+  const idx = hist.findIndex(c => c.id === id);
+  if (idx >= 0) hist[idx] = data; else hist.push(data);
+
+  let ok = saveHistory(hist);
+  // If storage is full, prune oldest entries' photos (keep their data) and retry
+  if (!ok) {
+    const sorted = [...hist].sort((a,b)=>a.ts-b.ts); // oldest first
+    for (const old of sorted) {
+      if (old.id === id) continue;          // never strip the current one
+      if (old.photo) {
+        old.photo = null;                   // drop old photo to free space
+        ok = saveHistory(hist);
+        if (ok) break;
+      }
+    }
+    if (!ok) {
+      // still too big: keep only current + a few newest
+      hist = hist.sort((a,b)=>b.ts-a.ts).slice(0, 8);
+      ok = saveHistory(hist);
+    }
+    if (!ok) showToast('Almacenamiento lleno — borra lugares antiguos');
+    else showToast('Espacio liberado de fotos antiguas');
+  }
+  store.set(DB_KEY, JSON.stringify(data));
+  return ok;
+}
+function loadData() {
+  const hist = loadHistory();
+  const id = currentId();
+  if (id) { const c = hist.find(x => x.id === id); if (c) return c; }
+  if (hist.length) return hist[hist.length-1];
+  try { const r = store.get(DB_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+// Create a NEW car entry (called when a new photo is taken)
+function newCarEntry() {
+  const id = 'car_' + Date.now();
+  setCurrentId(id);
+  return id;
+}
+
+// ── SPLASH ────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Restore motion permission flag
+  if (store.get('buscauto_motion') === '1') S.motionGranted = true;
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hide');
+    setTimeout(() => {
+      const s=document.getElementById('splash'); if(s) s.remove();
+      requestMotionPermissionOnce();
+    }, 700);
+  }, 2800);
+  checkSavedPill();
+  restorePhotoPreview();
+  // App opens on BUSCAR and does NOT touch GPS on launch
+  switchTab('buscar');
+  if (!LS_OK) setTimeout(()=>showToast('Aviso: este navegador no guarda datos entre sesiones'), 3200);
+});
+
+function requestMotionPermissionOnce() {
+  if (S.motionGranted) return; // already granted in a previous session
+  if (typeof DeviceMotionEvent?.requestPermission !== 'function') {
+    // Non-iOS — no permission needed
+    S.motionGranted = true;
+    return;
+  }
+  // iOS: must be triggered from a user gesture — show our one-time prompt
+  showPermPrompt();
+}
+
+function restorePhotoPreview() {
+  showParkPhoto(loadData()?.photo || null);
+}
+// Single image element — replace src, never accumulate
+function showParkPhoto(src) {
+  const box = document.getElementById('parkPhoto');
+  if (!box) return;
+  let img = box.querySelector('img');
+  if (src) {
+    if (!img) { img = document.createElement('img'); box.appendChild(img); }
+    img.src = src;
+    box.style.display = 'block';
+  } else {
+    if (img) img.remove();
+    box.style.display = 'none';
+  }
+}
+
+// ── TABS ──────────────────────────────────────────────────
+function switchTab(t) {
+  ['guardar','buscar','ajustes'].forEach(id => {
+    document.getElementById('sec-'+id)?.classList.remove('active');
+    document.getElementById('nav-'+id)?.classList.remove('active');
+  });
+  document.getElementById('sec-'+t)?.classList.add('active');
+  document.getElementById('nav-'+t)?.classList.add('active');
+  // hide the per-place editor whenever we leave Ajustes
+  if (t !== 'ajustes') { const ed=document.getElementById('placeEditor'); if(ed) ed.style.display='none'; }
+  if (t === 'buscar') loadFindTab();
+  if (t === 'guardar') { loadEstacionar(); setTimeout(()=>{ if(S.mapTrayecto) S.mapTrayecto.invalidateSize(); }, 150); }
+  if (t === 'ajustes') { loadAjustes(); }
+}
+
+// Downscale a photo to keep storage small (parking photos don't need full res)
+function downscalePhoto(dataUri, maxDim, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let { width:w, height:h } = img;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', quality)); }
+      catch { resolve(dataUri); }
+    };
+    img.onerror = () => resolve(dataUri);
+    img.src = dataUri;
+  });
+}
+
+// ── PHOTO ─────────────────────────────────────────────────
+function handlePhoto(file, source) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    S.photo = await downscalePhoto(ev.target.result, 1280, 0.7);
+
+    // EDIT MODE: only replace the photo of the place open in the Ajustes editor
+    if (S.editPhotoMode) {
+      S.editPhotoMode = false;
+      const d = loadEditing();
+      if (d) { d.photo = S.photo; const ok = persistEditing(d); uploadPhotoToCloud(d.id, S.photo); showToast(ok?'Foto actualizada':'No se pudo guardar'); }
+      loadEditor();
+      renderPlacesList(loadHistory(), S.editingId);
+      return;
+    }
+
+    // Read EXIF first to decide location + timestamp
+    const exif = await extractExifAsync(file);
+    const hasExifGps = exif && exif.lat != null && exif.lon != null;
+    // Timestamp: photo's own date if present, otherwise now
+    const ts = (exif && exif.ts) ? exif.ts : Date.now();
+
+    showParkPhoto(S.photo);
+    const newId = newCarEntry();
+    S.gps = null;
+    const rec = { id: newId, photo: S.photo, ts: ts, placeName: '', placeRadius: 40, radiusShape:'circle', radiusAngle:0, gps: null, route: null };
+    const okSave = persist(rec);
+    if (!okSave) showToast('Atención: poco espacio de almacenamiento');
+    checkSavedPill();
+    resetBuscarMap();
+    resetEstacionarMap();
+
+    if (hasExifGps) {
+      // Photo carries its own location → use it, no trayecto (you're not there now)
+      const hist = loadHistory();
+      const idx = hist.findIndex(c => c.id === newId);
+      if (idx >= 0) { hist[idx].gps = { lat: exif.lat, lon: exif.lon, source:'exif' }; saveHistory(hist); }
+      applyAutoName(newId, exif.lat, exif.lon);
+      document.getElementById('exifBadge').classList.add('show');
+      showToast('Ubicación y fecha tomadas de la foto');
+      uploadPhotoToCloud(newId, S.photo);
+      loadEstacionar();
+      if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+    } else if (source === 'gallery') {
+      // Gallery photo with NO location data — can't know where; ask user to mark it
+      showToast('La foto no tiene ubicación · márcala en el mapa');
+      uploadPhotoToCloud(newId, S.photo);
+      loadEstacionar();
+      startManualPin(); // let them place it
+    } else {
+      // CAMERA: you're parking right now → current location + trayecto
+      showToast('Lugar guardado');
+      uploadPhotoToCloud(newId, S.photo);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+          const hist = loadHistory();
+          const idx = hist.findIndex(c => c.id === newId);
+          if (idx >= 0 && (!hist[idx].gps || hist[idx].gps.source === 'device')) {
+            hist[idx].gps = { ...S.gps, source:'device' };
+            saveHistory(hist);
+            applyAutoName(newId, S.gps.lat, S.gps.lon);
+            if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
+            if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+          }
+        }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+      }
+      afterPhotoUploaded();
+    }
+
+    loadEstacionar();
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetEstacionarMap() {
+  if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; }
+  S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false;
+}
+
+// If a coordinate falls inside the radius of a previously NAMED place,
+// return that name (so re-parking in the same spot auto-labels it).
+function detectPlaceName(lat, lon, excludeId) {
+  const hist = loadHistory();
+  let best=null, bestDist=Infinity;
+  for (const c of hist) {
+    if (!c.gps || !c.placeName || c.id===excludeId) continue;
+    const d = haversine(lat, lon, c.gps.lat, c.gps.lon);
+    const r = c.placeRadius || 40;
+    if (d <= r && d < bestDist) { best=c.placeName; bestDist=d; }
+  }
+  return best;
+}
+
+// Apply auto-name to an entry by id given its coords
+function applyAutoName(id, lat, lon) {
+  const name = detectPlaceName(lat, lon, id);
+  if (!name) return;
+  const hist = loadHistory();
+  const idx = hist.findIndex(c=>c.id===id);
+  if (idx>=0 && !hist[idx].placeName) {
+    hist[idx].placeName = name;
+    saveHistory(hist);
+    showToast('Lugar reconocido: '+name);
+    loadEstacionar();
+    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+  }
+}
+
+// Manual pin: drag the map under a FIXED centre pin (easier than tapping)
+function startManualPin() {
+  document.getElementById('pinPicker').classList.add('show');
+  document.getElementById('pinConfirmBtn').disabled = false;
+  document.getElementById('pinHint').textContent = 'Arrastra el mapa hasta el lugar del coche';
+
+  // Use a longer delay on Android to let the DOM paint before Leaflet measures
+  setTimeout(() => {
+    const el = document.getElementById('pinPickerMap');
+    if (!el) return;
+
+    if (!S.pinPickerMap) {
+      if (!window.L) return;
+      S.pinPickerMap = L.map(el, { zoomControl:true, attributionControl:false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(S.pinPickerMap);
+    }
+
+    // Force size recalculation — critical on Android where the element may have 0 height initially
+    S.pinPickerMap.invalidateSize({ pan: false });
+    setTimeout(() => S.pinPickerMap.invalidateSize({ pan: false }), 400);
+
+    const d = loadData();
+    if (d?.gps) {
+      S.pinPickerMap.setView([d.gps.lat, d.gps.lon], 18);
+    } else {
+      navigator.geolocation?.getCurrentPosition(
+        p => S.pinPickerMap.setView([p.coords.latitude, p.coords.longitude], 18),
+        () => S.pinPickerMap.setView([40.4168, -3.7038], 6),
+        { enableHighAccuracy:true, timeout:6000 }
+      );
+    }
+  }, 150);
+}
+
+function cancelManualPin() {
+  document.getElementById('pinPicker').classList.remove('show');
+}
+
+function confirmManualPin() {
+  if (!S.pinPickerMap) return;
+  const c = S.pinPickerMap.getCenter();   // the fixed crosshair = map centre
+  const newId = newCarEntry();
+  const note = document.getElementById('noteInput')?.value || '';
+  const rec = { id:newId, photo:null, ts:Date.now(), placeName:'', note:note,
+                placeRadius:40, radiusShape:'circle', radiusAngle:0,
+                gps:{ lat:c.lat, lon:c.lng, source:'manual' }, route:null };
+  persist(rec);
+  checkSavedPill();
+  resetBuscarMap();
+  resetEstacionarMap();
+  applyAutoName(newId, c.lat, c.lng);
+  uploadPhotoToCloud(newId, null);
+  document.getElementById('pinPicker').classList.remove('show');
+  showParkPhoto(null);
+  loadEstacionar();
+  showToast('Coche marcado en el mapa');
+}
+
+function saveNote() {
+  const data=loadData(); if(!data) return;
+  data.note=document.getElementById('noteInput').value;
+  persist(data);
+  cloudSyncCurrentDebounced();
+}
+
+document.getElementById('photoInputCamera').addEventListener('change', e => { handlePhoto(e.target.files[0], 'camera'); e.target.value=''; });
+document.getElementById('photoInputGallery').addEventListener('change', e => { handlePhoto(e.target.files[0], 'gallery'); e.target.value=''; });
+
+function resetBuscarMap() {
+  if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; }
+  S.buscarCarMarker=null; S.buscarYouMarker=null; S.buscarLine=null; S.radiusLayer=null; S._pinHandlerSet=false;
+}
+
+function afterPhotoUploaded() {
+  if (S.pedoActive) stopPedometer();
+  S.pedoTriggered = false;
+  document.getElementById('trayectoBlock').style.display = 'block';
+  startPedometer();
+}
+
+// ── iOS MOTION PERMISSION PROMPT ──────────────────────────
+function showPermPrompt() {
+  document.getElementById('permPrompt').classList.add('show');
+}
+
+function requestMotionPermission() {
+  document.getElementById('permPrompt').classList.remove('show');
+  DeviceMotionEvent.requestPermission().then(result => {
+    if (result === 'granted') {
+      S.motionGranted = true;
+      store.set('buscauto_motion','1');
+    }
+  }).catch(() => {
+    S.motionGranted = true;
+    store.set('buscauto_motion','1');
+  });
+}
+
+function dismissPermPrompt() {
+  document.getElementById('permPrompt').classList.remove('show');
+  showToast('Podómetro omitido. Puedes iniciarlo manualmente.');
+}
+
+// Manual start button — also triggers permission if needed
+// ── EXIF ──────────────────────────────────────────────────
+// Promise-based EXIF read (resolves to {lat,lon,ts} — any field may be null)
+function extractExifAsync(file) {
+  return new Promise(resolve => {
+    if (typeof EXIF === 'undefined') { resolve(null); return; }
+    try {
+      EXIF.getData(file, function() {
+        const lat=EXIF.getTag(this,'GPSLatitude'), latR=EXIF.getTag(this,'GPSLatitudeRef');
+        const lon=EXIF.getTag(this,'GPSLongitude'), lonR=EXIF.getTag(this,'GPSLongitudeRef');
+        const dtStr=EXIF.getTag(this,'DateTimeOriginal')||EXIF.getTag(this,'DateTime');
+        let ts=null;
+        if (dtStr) {
+          // EXIF date format: "YYYY:MM:DD HH:MM:SS"
+          const m=String(dtStr).match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+          if (m) ts=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime();
+        }
+        const hasGps = lat && lon;
+        if (hasGps || ts) resolve({ lat: hasGps?dms2dec(lat,latR):null, lon: hasGps?dms2dec(lon,lonR):null, ts });
+        else resolve(null);
+      });
+    } catch { resolve(null); }
+  });
+}
+
+function extractExif(file) {
+  S.photoExifGps = null;
+  document.getElementById('exifBadge').classList.remove('show');
+  if (typeof EXIF === 'undefined') return;
+  EXIF.getData(file, function() {
+    const lat=EXIF.getTag(this,'GPSLatitude'), latR=EXIF.getTag(this,'GPSLatitudeRef');
+    const lon=EXIF.getTag(this,'GPSLongitude'), lonR=EXIF.getTag(this,'GPSLongitudeRef');
+    if (lat && lon) {
+      S.photoExifGps = { lat: dms2dec(lat,latR), lon: dms2dec(lon,lonR) };
+      document.getElementById('exifBadge').classList.add('show');
+      showToast('GPS detectado en la foto');
+      // Update the current car entry with the photo's own GPS
+      const cur = loadData() || {};
+      cur.gps = { lat: S.photoExifGps.lat, lon: S.photoExifGps.lon, source: 'exif' };
+      persist(cur);
+      if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+    }
+  });
+}
+function dms2dec(dms,ref){ const d=dms[0]+dms[1]/60+dms[2]/3600; return (ref==='S'||ref==='W')?-d:d; }
+
+// ── GPS ───────────────────────────────────────────────────
+function getGPS() {
+  if (!navigator.geolocation) { showToast('GPS no disponible'); return; }
+  document.getElementById('gpsDot').className='dot warn';
+  document.getElementById('gpsStatus').textContent='Buscando...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    S.gps = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now() };
+    document.getElementById('gpsDot').className='dot ok';
+    document.getElementById('gpsStatus').textContent='Señal OK';
+    document.getElementById('gpsLat').textContent=S.gps.lat.toFixed(6);
+    document.getElementById('gpsLon').textContent=S.gps.lon.toFixed(6);
+    document.getElementById('gpsAcc').textContent='±'+Math.round(S.gps.acc)+'m';
+    showToast('GPS obtenido · ±'+Math.round(S.gps.acc)+'m');
+    // Do NOT persist here — the car location is only saved when a photo is taken
+  }, err => {
+    document.getElementById('gpsDot').className='dot err';
+    document.getElementById('gpsStatus').textContent='Error';
+    showToast(err.code===1?'Permiso GPS denegado':'No se pudo obtener GPS');
+  }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+}
+
+// ── PEDOMETER ─────────────────────────────────────────────
+const s2m = s => Math.round(s * 0.78);
+
+function startPedometer() {
+  S.steps=0; S.pedoActive=true;
+  S.pedoStartTime=Date.now();
+  S.pathPoints=[{x:0,y:0}];
+  S.gpsPathPoints=[];
+  S.lastMag=null; S.lastStep=0;
+  S.hasGpsFix=false;
+
+  document.getElementById('recBadge').classList.add('show');
+  document.getElementById('stopPedoBtn').style.display='flex';
+  document.getElementById('stepCount').textContent='0';
+  document.getElementById('distMeters').textContent='0';
+
+  window.addEventListener('devicemotion', onMotion);
+  window.addEventListener('deviceorientation', onOrientation);
+  initTrayectoMap();
+
+  // Decide duration: if we already have a recent GPS fix → 15s, else probe briefly.
+  let decided = false;
+  const decide = (withGps) => {
+    if (decided) return; decided = true;
+    S.pedoDurationMs = withGps ? 15000 : 90000;
+    const sec = Math.floor(S.pedoDurationMs/1000);
+    document.getElementById('distTime').textContent = '0:' + String(sec).padStart(2,'0');
+    S.pedoTimer = setInterval(updateTime, 1000);
+    S.pedoAutoStop = setTimeout(stopPedometer, S.pedoDurationMs);
+    showToast(withGps ? 'Trayecto · 15 s (con GPS)' : 'Trayecto · 1 min 30 s (sin GPS)');
+  };
+  if (S.gps) {  // we already got a fix when the photo was taken
+    S.hasGpsFix = true;
+    decide(true);
+  } else if (navigator.geolocation) {
+    let answered = false;
+    navigator.geolocation.getCurrentPosition(
+      p => { if(answered) return; answered=true; S.hasGpsFix=true; S.gpsPathPoints.push([p.coords.latitude,p.coords.longitude]); updateTrayectoMap(); decide(true); },
+      () => { if(answered) return; answered=true; decide(false); },
+      { enableHighAccuracy:true, timeout:4000, maximumAge:10000 }
+    );
+    setTimeout(() => { if(!answered){ answered=true; decide(false); } }, 4500);
+  } else {
+    decide(false);
+  }
+}
+
+function stopPedometer() {
+  clearTimeout(S.pedoAutoStop);
+  clearInterval(S.pedoTimer);
+  S.pedoActive = false; S.pedoTriggered = false;
+  window.removeEventListener('devicemotion', onMotion);
+  window.removeEventListener('deviceorientation', onOrientation);
+  document.getElementById('recBadge').classList.remove('show');
+  document.getElementById('stopPedoBtn').style.display='none';
+  const tb = document.getElementById('trayectoBlock'); if (tb) tb.style.display='none';
+  loadEstacionar();
+  if (S.steps > 0) {
+    const existing = loadData();
+    if (existing) {
+      existing.route = { points:S.pathPoints, steps:S.steps, distMeters:s2m(S.steps), gpsPoints:S.gpsPathPoints };
+      persist(existing);
+    }
+  }
+  showToast(S.steps+' pasos · '+s2m(S.steps)+'m guardados');
+}
+
+function onMotion(e) {
+  const a=e.accelerationIncludingGravity; if(!a) return;
+  const mag=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z);
+  const now=Date.now();
+  if (S.lastMag!==null && Math.abs(mag-S.lastMag)>2.5 && (now-S.lastStep)>350) {
+    S.steps++;
+    S.lastStep=now;
+    document.getElementById('stepCount').textContent=S.steps;
+    document.getElementById('distMeters').textContent=s2m(S.steps);
+    const ang=S.heading!==null?S.heading*Math.PI/180:0;
+    const last=S.pathPoints[S.pathPoints.length-1];
+    S.pathPoints.push({x:last.x+Math.sin(ang), y:last.y-Math.cos(ang)});
+    // also grab real GPS for map
+    navigator.geolocation?.getCurrentPosition(p=>{ S.gpsPathPoints.push([p.coords.latitude,p.coords.longitude]); updateTrayectoMap(); },{},{ enableHighAccuracy:true, maximumAge:3000 });
+  }
+  S.lastMag=mag;
+}
+
+function onOrientation(e) {
+  const deg = e.webkitCompassHeading ?? e.alpha;
+  if (deg!==null) {
+    S.heading=deg;
+    const mn = document.getElementById('miniNeedle');
+    if (mn) mn.style.transform=`translateY(-100%) rotate(${deg}deg)`;
+    const cd = document.getElementById('compassDeg');
+    if (cd) cd.textContent=card(deg);
+  }
+}
+
+function updateTime() {
+  if (!S.pedoActive || !S.pedoDurationMs) return;
+  const rem = Math.max(0, Math.round((S.pedoDurationMs-(Date.now()-S.pedoStartTime))/1000));
+  document.getElementById('distTime').textContent=Math.floor(rem/60)+':'+String(rem%60).padStart(2,'0');
+}
+
+function card(d){ return ['N','NE','E','SE','S','SO','O','NO'][Math.round(d/45)%8]; }
+
+// ── LEAFLET MAPS ──────────────────────────────────────────
+function initTrayectoMap() {
+  if (S.mapTrayecto) return;
+  const el = document.getElementById('mapTrayecto');
+  if (!el || !window.L) return;
+  S.mapTrayecto = L.map(el, { zoomControl:false, attributionControl:false });
+  // default view (centre on current GPS or a fallback) so tiles load immediately
+  const c = S.gps ? [S.gps.lat, S.gps.lon] : [40.4168, -3.7038];
+  S.mapTrayecto.setView(c, S.gps ? 17 : 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© OSM'
+  }).addTo(S.mapTrayecto);
+  L.control.zoom({position:'bottomright'}).addTo(S.mapTrayecto);
+  S._trayectoLine = L.polyline([], {color:'#c41850',weight:4,opacity:0.9}).addTo(S.mapTrayecto);
+  S._trayectoStart = null; S._trayectoEnd = null;
+  setTimeout(()=>S.mapTrayecto.invalidateSize(), 200);
+}
+
+function updateTrayectoMap() {
+  if (!S.mapTrayecto) initTrayectoMap();
+  if (!S.mapTrayecto || S.gpsPathPoints.length < 1) return;
+  const lls = S.gpsPathPoints;
+  S._trayectoLine.setLatLngs(lls);
+  if (lls.length >= 2) {
+    S.mapTrayecto.fitBounds(S._trayectoLine.getBounds(), {padding:[20,20]});
+  } else {
+    S.mapTrayecto.setView(lls[0], 17);
+  }
+  // start marker
+  if (!S._trayectoStart) {
+    S._trayectoStart = L.circleMarker(lls[0], {radius:8,color:'#a8d18a',fillColor:'#a8d18a',fillOpacity:1,weight:2}).addTo(S.mapTrayecto);
+  }
+  // current position marker
+  if (S._trayectoEnd) S._trayectoEnd.setLatLng(lls[lls.length-1]);
+  else S._trayectoEnd = L.circleMarker(lls[lls.length-1], {radius:8,color:'#cc2244',fillColor:'#cc2244',fillOpacity:1,weight:2}).addTo(S.mapTrayecto);
+}
+
+// Legacy stub — canvas no longer used
+function drawPath(id, pts) {}
+
+// ── FIND TAB ──────────────────────────────────────────────
+// BUSCAR tab — place photo + live search map + arrow
+function loadFindTab() {
+  const data = loadData();
+  if (!data) { document.getElementById('noSaved').style.display='block'; document.getElementById('savedData').style.display='none'; return; }
+  document.getElementById('noSaved').style.display='none';
+  document.getElementById('savedData').style.display='block';
+
+  // place name as label
+  document.getElementById('buscarPlaceName').textContent = data.placeName || 'Lugar estacionado';
+
+  // photo thumb
+  const thumb=document.getElementById('savedPhotoThumb');
+  const ph=document.getElementById('noPhotoPlaceholder');
+  let img=thumb.querySelector('img');
+  if (data.photo) {
+    ph.style.display='none';
+    if (!img) { img=document.createElement('img'); thumb.prepend(img); }
+    img.src=data.photo;
+    if (!thumb.querySelector('.thumb-expand')) {
+      const hint=document.createElement('div'); hint.className='thumb-expand';
+      hint.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg> Ampliar`;
+      thumb.appendChild(hint);
+    }
+  } else { if (img) img.remove(); ph.style.display='flex'; }
+
+  // park time
+  const el=document.getElementById('parkTimeBuscar');
+  if (el) el.textContent = parkTimeText(data.ts);
+
+  // note
+  const noteEl=document.getElementById('buscarNote');
+  if (noteEl) {
+    if (data.note) { noteEl.textContent = '“' + data.note + '”'; noteEl.style.display='block'; }
+    else noteEl.style.display='none';
+  }
+
+  if (data.gps) {
+    document.getElementById('mapsLinkApple').href=`maps://maps.apple.com/?q=${data.gps.lat},${data.gps.lon}`;
+    document.getElementById('mapsLinkGoogle').href=`https://maps.google.com/?q=${data.gps.lat},${data.gps.lon}`;
+  }
+  initBuscarMap();
+  renderBuscarMap();
+}
+
+// ESTACIONAR tab — place editor (name, radius, pin, places list, small map)
+// MAIN Estacionar screen — photo + name + park time (simple)
+function loadEstacionar() {
+  const data = loadData();
+  showParkPhoto(data?.photo || null);
+  const nameEl = document.getElementById('placeNameInput');
+  if (nameEl) nameEl.value = data?.placeName || '';
+  const noteEl = document.getElementById('noteInput');
+  if (noteEl) noteEl.value = data?.note || '';
+  const pt = document.getElementById('parkTime');
+  if (pt) pt.textContent = data ? parkTimeText(data.ts) : '';
+}
+
+// AJUSTES — list of saved places
+function loadAjustes() {
+  const hist = loadHistory();
+  renderPlacesList(hist, currentId());
+  // editor stays hidden until a place is tapped
+}
+
+// Per-place EDITOR (opened from the places list)
+// ── EDITOR works on a SEPARATE id, never changes the parked car ──
+function loadEditing() {
+  if (!S.editingId) return null;
+  return loadHistory().find(c => c.id === S.editingId) || null;
+}
+function persistEditing(data) {
+  const hist = loadHistory();
+  const idx = hist.findIndex(c => c.id === data.id);
+  if (idx >= 0) hist[idx] = data; else hist.push(data);
+  const ok = saveHistory(hist);
+  if (!ok) showToast('Almacenamiento lleno');
+  return ok;
+}
+
+function loadEditor() {
+  const data = loadEditing();
+  const editor = document.getElementById('placeEditor');
+  if (!data) { editor.style.display='none'; return; }
+  editor.style.display='block';
+
+  document.getElementById('editNameInput').value = data.placeName || '';
+
+  const r = data.placeRadius || 40;
+  document.getElementById('radiusSlider').value = r;
+  document.getElementById('radiusVal').textContent = r + ' m';
+  S.radiusShape = data.radiusShape || 'circle';
+  document.getElementById('shapeCircle').classList.toggle('active', S.radiusShape==='circle');
+  document.getElementById('shapeRect').classList.toggle('active', S.radiusShape==='rect');
+  const ang = data.radiusAngle || 0;
+  document.getElementById('rotationSlider').value = ang;
+  document.getElementById('rotationVal').textContent = ang + '°';
+  document.getElementById('rotationWrap').style.display = S.radiusShape==='rect' ? 'block' : 'none';
+
+  initEstacionarMap();
+  renderEstacionarMap();
+  // scroll editor into view
+  setTimeout(()=>editor.scrollIntoView({behavior:'smooth',block:'start'}), 100);
+}
+
+function parkTimeText(ts) {
+  const mins=Math.floor((Date.now()-ts)/60000);
+  if (mins<1) return 'Estacionado hace un momento';
+  if (mins<60) return 'Estacionado hace '+mins+' min';
+  const h=Math.floor(mins/60), m=mins%60; return 'Estacionado hace '+h+'h '+(m?m+'min':'');
+}
+function updateParkTime(ts) {
+  const el=document.getElementById('parkTime'); if(!el) return;
+  el.textContent=parkTimeText(ts);
+}
+
+// Tapping a place in Ajustes selects it and opens the editor
+function selectHistory(id) {
+  S.editingId = id;   // edit this place WITHOUT changing the active parked car
+  if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
+  renderPlacesList(loadHistory(), id);
+  loadEditor();
+}
+
+// ── ESTACIONAR MAP (place + radius) ───────────────────────
+function initEstacionarMap() {
+  if (S.mapEstacionar) { setTimeout(()=>S.mapEstacionar.invalidateSize(),150); return; }
+  const el=document.getElementById('mapEstacionar');
+  if (!el || !window.L) return;
+  const data=loadEditing();
+  const c = data?.gps ? [data.gps.lat,data.gps.lon] : (S.gps?[S.gps.lat,S.gps.lon]:[40.4168,-3.7038]);
+  S.mapEstacionar=L.map(el,{zoomControl:false,attributionControl:false}).setView(c, data?.gps?18:5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.mapEstacionar);
+  L.control.zoom({position:'bottomright'}).addTo(S.mapEstacionar);
+  setTimeout(()=>S.mapEstacionar.invalidateSize(),200);
+}
+
+function renderEstacionarMap() {
+  const data=loadEditing();
+  if (!S.mapEstacionar || !data?.gps) return;
+  const carLL=[data.gps.lat,data.gps.lon];
+  if (!S.estCarMarker) {
+    S.estCarMarker=L.marker(carLL,{icon:L.divIcon({className:'',html:'<div style="font-size:28px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))">📍</div>',iconSize:[28,28],iconAnchor:[14,28]})}).addTo(S.mapEstacionar);
+  } else S.estCarMarker.setLatLng(carLL);
+  S.mapEstacionar.setView(carLL, S.mapEstacionar.getZoom()<10?18:S.mapEstacionar.getZoom());
+  drawRadius();
+  if (!S._pinHandlerSetEst) {
+    S.mapEstacionar.on('click', e => {
+      if (!S.pinMode) return;
+      const d=loadEditing(); if(!d) return;
+      d.gps={ lat:e.latlng.lat, lon:e.latlng.lng, source:'manual' };
+      persistEditing(d);
+      togglePinMode();
+      renderEstacionarMap();
+      showToast('Ubicación ajustada con chincheta');
+    });
+    S._pinHandlerSetEst=true;
+  }
+}
+
+// ── BUSCAR LIVE MAP ──────────────────────────────────────
+function initBuscarMap() {
+  if (S.mapBuscar) { setTimeout(()=>S.mapBuscar.invalidateSize(),150); return; }
+  const el=document.getElementById('mapBuscar');
+  if (!el || !window.L) return;
+  const data=loadData();
+  const c = data?.gps ? [data.gps.lat,data.gps.lon] : (S.gps?[S.gps.lat,S.gps.lon]:[40.4168,-3.7038]);
+  S.mapBuscar=L.map(el,{zoomControl:false,attributionControl:false}).setView(c, data?.gps?17:5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(S.mapBuscar);
+  L.control.zoom({position:'bottomright'}).addTo(S.mapBuscar);
+  setTimeout(()=>S.mapBuscar.invalidateSize(),200);
+}
+
+function renderBuscarMap() {
+  const data=loadData();
+  if (!S.mapBuscar || !data?.gps) return;
+  const carLL=[data.gps.lat,data.gps.lon];
+  if (!S.buscarCarMarker) {
+    S.buscarCarMarker=L.marker(carLL,{icon:L.divIcon({className:'',html:'<div style="font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))">📍</div>',iconSize:[26,26],iconAnchor:[13,26]})}).addTo(S.mapBuscar);
+  } else S.buscarCarMarker.setLatLng(carLL);
+  S.mapBuscar.setView(carLL, S.mapBuscar.getZoom()<10?17:S.mapBuscar.getZoom());
+  // tap-to-place-pin handler (registered once)
+}
+
+function drawRadius() {
+  const data=loadEditing();
+  if (!S.mapEstacionar || !data?.gps) return;
+  const carLL=[data.gps.lat,data.gps.lon];
+  const r = data.placeRadius || 40;
+  if (S.radiusLayer) { S.mapEstacionar.removeLayer(S.radiusLayer); S.radiusLayer=null; }
+  if (S.radiusShape === 'circle') {
+    S.radiusLayer = L.circle(carLL, { radius:r, color:'#8fb863', weight:3, fillColor:'#8fb863', fillOpacity:0.16 });
+  } else {
+    // rotatable thin rectangle (a line with width), centred on the car
+    const angle = (data.radiusAngle || 0) * Math.PI/180;
+    const halfLen = r;          // metres along the line
+    const halfWid = Math.max(4, r*0.10); // metres across (thin)
+    // metres → degrees helpers
+    const mLat = 1/111320;
+    const mLon = 1/(111320*Math.cos(carLL[0]*Math.PI/180));
+    // four corners in local metres, rotated by angle
+    const corners = [[-halfLen,-halfWid],[halfLen,-halfWid],[halfLen,halfWid],[-halfLen,halfWid]];
+    const pts = corners.map(([x,y]) => {
+      const rx = x*Math.cos(angle) - y*Math.sin(angle);
+      const ry = x*Math.sin(angle) + y*Math.cos(angle);
+      return [carLL[0] + ry*mLat, carLL[1] + rx*mLon];
+    });
+    S.radiusLayer = L.polygon(pts, { color:'#8fb863', weight:2, fillColor:'#8fb863', fillOpacity:0.2 });
+  }
+  S.radiusLayer.addTo(S.mapEstacionar);
+}
+
+function onRadiusChange(val) {
+  document.getElementById('radiusVal').textContent = val + ' m';
+  const data=loadEditing(); if(!data) return;
+  data.placeRadius = parseInt(val);
+  persistEditing(data);
+  drawRadius();
+  cloudSyncEditingDebounced();
+}
+
+function onRotationChange(val) {
+  document.getElementById('rotationVal').textContent = val + '°';
+  const data=loadEditing(); if(!data) return;
+  data.radiusAngle = parseInt(val);
+  persistEditing(data);
+  drawRadius();
+  cloudSyncEditingDebounced();
+}
+
+function setRadiusShape(shape) {
+  S.radiusShape = shape;
+  document.getElementById('shapeCircle').classList.toggle('active', shape==='circle');
+  document.getElementById('shapeRect').classList.toggle('active', shape==='rect');
+  document.getElementById('rotationWrap').style.display = shape==='rect' ? 'block' : 'none';
+  const data=loadEditing(); if(data){ data.radiusShape=shape; persistEditing(data); }
+  drawRadius();
+  cloudSyncEditingDebounced();
+}
+
+function editPhoto() {
+  S.editPhotoMode = true;
+  document.getElementById('photoInputGallery').click();
+}
+
+function togglePinMode() {
+  S.pinMode = !S.pinMode;
+  const btn=document.getElementById('pinBtn');
+  if (S.pinMode) {
+    btn.classList.add('btn-green'); btn.classList.remove('btn-secondary');
+    btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg> Toca el mapa para fijar (cancelar)';
+    showToast('Toca el mapa donde está el coche');
+  } else {
+    btn.classList.remove('btn-green'); btn.classList.add('btn-secondary');
+    btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Fijar ubicación con chincheta';
+  }
+}
+
+// ── PLACES LIST (editable) ────────────────────────────────
+function renderPlacesList(hist, currentIdVal) {
+  const wrap=document.getElementById('placesList');
+  if (!wrap) return;
+  wrap.innerHTML='';
+  if (!hist.length) { wrap.innerHTML='<div style="color:var(--text3);font-size:0.9rem">Sin lugares aún</div>'; return; }
+  hist.slice().reverse().forEach(c => {
+    const item=document.createElement('div');
+    item.className='place-item'+(c.id===currentIdVal?' active':'');
+    const dt=new Date(c.ts);
+    const meta=dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})+' '+dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})+' · '+(c.placeRadius||40)+'m';
+    item.innerHTML =
+      (c.photo?`<img class="place-thumb" src="${c.photo}">`:`<div class="place-thumb"></div>`)+
+      `<div class="place-info"><div class="place-name">${c.placeName||'Lugar sin nombre'}</div><div class="place-meta">${meta}</div></div>`+
+      `<button class="place-del" title="Borrar">`+
+      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>`;
+    // tap row → select & load into editor (where name/radius/photo are editable)
+    item.querySelector('.place-info').onclick=()=>{ selectHistory(c.id); showToast('Editando: '+(c.placeName||'lugar')); };
+    item.querySelector('.place-thumb').onclick=()=>selectHistory(c.id);
+    item.querySelector('.place-del').onclick=(e)=>{ e.stopPropagation(); deletePlace(c.id); };
+    wrap.appendChild(item);
+  });
+}
+
+function deletePlace(id) {
+  if (!confirm('¿Borrar este lugar guardado?')) return;
+  let hist=loadHistory().filter(c=>c.id!==id);
+  saveHistory(hist);
+  if (currentId()===id) {
+    if (hist.length) setCurrentId(hist[hist.length-1].id);
+    else { store.del(CUR_KEY); store.del(DB_KEY); }
+  }
+  if (S.editingId===id) S.editingId=null;
+  if (S.mapEstacionar) { S.mapEstacionar.remove(); S.mapEstacionar=null; S.estCarMarker=null; S.radiusLayer=null; S._pinHandlerSetEst=false; }
+  checkSavedPill();
+  document.getElementById('placeEditor').style.display='none';
+  loadAjustes();
+  showToast('Lugar borrado');
+}
+
+function editPlaceName() {
+  const data=loadEditing(); if(!data) return;
+  data.placeName=document.getElementById('editNameInput').value;
+  persistEditing(data);
+  cloudSyncEditingDebounced();
+  renderPlacesList(loadHistory(), data.id);
+}
+function savePlaceName() {
+  const data=loadData();
+  if (!data) {
+    // No saved data yet — create minimal record with just the name
+    persist({ gps: null, photo: null, ts: Date.now(), placeName: document.getElementById('placeNameInput').value, route: null });
+    return;
+  }
+  data.placeName=document.getElementById('placeNameInput').value;
+  persist(data);
+  cloudSyncCurrentDebounced();
+}
+
+// ── LIVE TRACKING (500ms) ─────────────────────────────────
+function toggleTracking() {
+  S.tracking ? stopTracking() : startTracking();
+}
+
+function startTracking() {
+  S.tracking=true; S._lastBearing=null; S._lastFit=0; S._phoneHeading=null;
+  S._bestAcc=Infinity; S._gpsReady=false; S._smoothPos=null; S._gpsCount=0;
+  document.getElementById('trackingBadge').classList.add('show');
+  const btn=document.getElementById('trackBtn');
+  btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Detener búsqueda`;
+  btn.style.cssText='background:var(--surface3);color:var(--text2);border:1px solid var(--border)';
+
+  startHeadingListener();
+  enterSearchFullscreen();
+
+  // Lock PANNING only — zoom still works
+  if (S.mapBuscar) {
+    S.mapBuscar.dragging.disable();
+    S.mapBuscar.boxZoom.disable();
+    S.mapBuscar.keyboard.disable();
+    // keep touchZoom, scrollWheelZoom, doubleClickZoom enabled
+  }
+
+  updateDirection();
+  if (navigator.geolocation) {
+    S._watchId = navigator.geolocation.watchPosition(onPosUpdate, e=>console.warn("GPS err",e.code), { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+  }
+  S.trackInterval = setInterval(()=>{ const d=loadData(); if(d) updateParkTime(d.ts); }, 1000);
+}
+
+function stopTracking() {
+  S.tracking=false;
+  clearInterval(S.trackInterval);
+  if (S._watchId != null) { navigator.geolocation.clearWatch(S._watchId); S._watchId=null; }
+  stopHeadingListener();
+  exitSearchFullscreen();
+  if (S.mapBuscar) {
+    S.mapBuscar.dragging.enable();
+    S.mapBuscar.boxZoom.enable();
+    S.mapBuscar.keyboard.enable();
+  }
+  document.getElementById('trackingBadge').classList.remove('show');
+  const btn=document.getElementById('trackBtn');
+  btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar coche`;
+  btn.style.cssText='';
+}
+
+// ── PHONE HEADING (compass) ───────────────────────────────
+function onSearchOrientation(e) {
+  // Prefer ABSOLUTE orientation (true compass). On Android the relative
+  // 'deviceorientation' drifts and flips 180°, which caused the map to spin.
+  let h = null;
+  if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
+    h = e.webkitCompassHeading;            // iOS true heading
+    S._haveAbsolute = true;
+  } else if (e.absolute === true && e.alpha != null) {
+    h = 360 - e.alpha;                     // Android absolute
+    S._haveAbsolute = true;
+  } else if (!S._haveAbsolute && e.alpha != null) {
+    h = 360 - e.alpha;                     // fallback only if no absolute source seen
+  }
+  if (h == null || isNaN(h)) return;
+  h = (h + 360) % 360;
+
+  // Smooth with a gentle low-pass, and guard against the 0/360 wrap.
+  if (S._smoothHeading == null) S._smoothHeading = h;
+  let diff = ((h - S._smoothHeading + 540) % 360) - 180;
+  // Ignore tiny jitters (<2°) so the map sits still when you're not turning.
+  if (Math.abs(diff) < 2) return;
+  S._smoothHeading = (S._smoothHeading + diff * 0.15 + 360) % 360;
+  S._phoneHeading = S._smoothHeading;
+  // throttle the actual DOM rotation to ~12fps to avoid stutter/flipping
+  if (!S._rotRaf) {
+    S._rotRaf = requestAnimationFrame(() => { S._rotRaf = null; applyMapRotation(); });
+  }
+}
+
+// Rotate the fullscreen map so "up" is where the phone points (navigation mode)
+function applyMapRotation() {
+  if (!S.tracking || !document.getElementById('searchFs').classList.contains('show')) return;
+  const heading = S._phoneHeading || 0;
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) {
+    mapEl.style.transformOrigin = 'center center';
+    mapEl.style.transform = `rotate(${-heading}deg)`;
+  }
+  // counter-rotate the arrow so it still points at the car in screen space
+  const fa = document.getElementById('fsArrow');
+  if (fa && S._lastBearing != null) fa.style.transform = `rotate(${S._lastBearing}deg)`;
+}
+
+// Shared AudioContext — must be created/resumed from user gesture to work on iOS
+function getAudioCtx() {
+  if (!S._audioCtx) S._audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (S._audioCtx.state === 'suspended') S._audioCtx.resume();
+  return S._audioCtx;
+}
+
+// Unlock audio on first user touch (iOS requires this)
+document.addEventListener('touchstart', () => { try { getAudioCtx(); } catch {} }, { once:true });
+document.addEventListener('click', () => { try { getAudioCtx(); } catch {} }, { once:true });
+
+function playProximitySound() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Two-tone beep: 880Hz then 1100Hz — audible even at low volume
+    [0, 0.25].forEach((offset, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = i === 0 ? 880 : 1100;
+      g.gain.setValueAtTime(0, now+offset);
+      g.gain.linearRampToValueAtTime(1.0, now+offset+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now+offset+0.22);
+      o.start(now+offset); o.stop(now+offset+0.25);
+    });
+  } catch {}
+}
+
+function startHeadingListener() {
+  const add = () => {
+    window.addEventListener('deviceorientationabsolute', onSearchOrientation, true);
+    window.addEventListener('deviceorientation', onSearchOrientation, true);
+  };
+  if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(p => { if (p === 'granted') add(); }).catch(add);
+  } else add();
+}
+function stopHeadingListener() {
+  window.removeEventListener('deviceorientationabsolute', onSearchOrientation, true);
+  window.removeEventListener('deviceorientation', onSearchOrientation, true);
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) mapEl.style.transform = '';
+  S._smoothHeading = null;
+}
+
+// ── FULLSCREEN SEARCH MODE ────────────────────────────────
+function enterSearchFullscreen() {
+  document.getElementById('searchFs').classList.add('show');
+  // move the live map into the fullscreen container
+  const fsMap = document.getElementById('fsMapHolder');
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl && fsMap && mapEl.parentElement !== fsMap) {
+    S._mapHome = mapEl.parentElement;
+    fsMap.appendChild(mapEl);
+    setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
+  }
+  // fill the place name + photo in the fullscreen header
+  const d = loadData();
+  document.getElementById('fsPlaceName').textContent = d?.placeName || 'Tu coche';
+  const fsImg = document.getElementById('fsPhoto');
+  if (d?.photo) { fsImg.src = d.photo; fsImg.style.display='block'; }
+  else fsImg.style.display='none';
+}
+
+function exitSearchFullscreen() {
+  document.getElementById('searchFs').classList.remove('show');
+  const mapEl = document.getElementById('mapBuscar');
+  if (mapEl) { mapEl.style.transform=''; mapEl.style.transformOrigin=''; }
+  if (mapEl && S._mapHome && mapEl.parentElement !== S._mapHome) {
+    S._mapHome.appendChild(mapEl);
+    setTimeout(()=>{ if(S.mapBuscar) S.mapBuscar.invalidateSize(); }, 200);
+  }
+}
+
+// Shortest distance (m) from a point to a polyline (array of [lat,lon])
+function distanceToPolyline(lat, lon, coords) {
+  let min = Infinity;
+  for (let i=0; i<coords.length-1; i++) {
+    const d = distToSegment(lat, lon, coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1]);
+    if (d < min) min = d;
+  }
+  return min;
+}
+function distToSegment(plat, plon, alat, alon, blat, blon) {
+  // approximate using equirectangular projection (fine for short distances)
+  const R=6371000, toR=Math.PI/180;
+  const x=(lon)=>lon*toR*Math.cos(plat*toR)*R, y=(lat)=>lat*toR*R;
+  const px=x(plon),py=y(plat),ax=x(alon),ay=y(alat),bx=x(blon),by=y(blat);
+  const dx=bx-ax, dy=by-ay;
+  const len2=dx*dx+dy*dy;
+  let t = len2 ? ((px-ax)*dx+(py-ay)*dy)/len2 : 0;
+  t=Math.max(0,Math.min(1,t));
+  const cx=ax+t*dx, cy=ay+t*dy;
+  return Math.hypot(px-cx, py-cy);
+}
+
+// Fetch walking route via OSRM (open, free, no API key)
+async function fetchWalkingRoute(fromLL, toLL) {
+  const url = `https://router.project-osrm.org/route/v1/foot/${fromLL[1]},${fromLL[0]};${toLL[1]},${toLL[0]}?overview=simplified&geometries=geojson`;
+  try {
+    const r = await fetch(url, {signal: AbortSignal.timeout(5000)});
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    const coords = d.routes[0].geometry.coordinates.map(c => [c[1],c[0]]);
+    S._routeDuration = d.routes[0].duration;
+    S._routeDistance = d.routes[0].distance;
+    S._routeCoords = coords;
+    S._rerouting = false;
+    if (S.mapBuscar) {
+      if (S.buscarLine) S.buscarLine.setLatLngs(coords);
+      else S.buscarLine = L.polyline(coords, {color:'#c41850',weight:4,opacity:0.9}).addTo(S.mapBuscar);
+    }
+  } catch {
+    // Offline or error — fall back to straight line
+    if (S.mapBuscar) {
+      if (S.buscarLine) S.buscarLine.setLatLngs([fromLL, toLL]);
+      else S.buscarLine = L.polyline([fromLL,toLL],{color:'#c41850',weight:3,dashArray:'8 6',opacity:0.9}).addTo(S.mapBuscar);
+    }
+  }
+}
+
+function onPosUpdate(pos) {
+  const data=loadData(); if (!data?.gps) return;
+  const lat=pos.coords.latitude, lon=pos.coords.longitude;
+  const acc=pos.coords.accuracy || 999;
+
+  // Reject clearly bad fixes: if we've already had a good one and this reading
+  // is much worse (e.g. >2x the best and over 35m), skip it so the dot doesn't
+  // jump to the wrong side of the street. Always accept the first few.
+  if (S._bestAcc == null) S._bestAcc = Infinity;
+  S._gpsCount = (S._gpsCount||0) + 1;
+  if (acc < S._bestAcc) S._bestAcc = acc;
+  if (S._gpsCount > 3 && acc > 35 && acc > S._bestAcc * 2.2) {
+    // too noisy — ignore this single reading
+    const fa3 = document.getElementById('fsAccuracy');
+    if (fa3) { fa3.textContent = 'Señal GPS débil…'; fa3.style.color='var(--red2)'; }
+    return;
+  }
+
+  // ── POSITION SMOOTHING (low-pass filter) ──
+  // Instead of jumping to each raw GPS reading (which causes the "shaking"),
+  // ease the displayed position toward the new reading. Better-accuracy
+  // readings pull harder; poor ones barely move the dot. This is the main
+  // reason Google Maps looks stable and our raw dot did not.
+  if (!S._smoothPos) {
+    S._smoothPos = { lat, lon };
+  } else {
+    // weight: high accuracy → move more (up to 0.5), low accuracy → move little
+    let w = Math.max(0.12, Math.min(0.5, 15 / acc));
+    S._smoothPos.lat += (lat - S._smoothPos.lat) * w;
+    S._smoothPos.lon += (lon - S._smoothPos.lon) * w;
+  }
+  const sLat = S._smoothPos.lat, sLon = S._smoothPos.lon;
+
+  const carLL=[data.gps.lat,data.gps.lon];
+  const youLL=[sLat,sLon];
+  const dist=haversine(sLat,sLon,data.gps.lat,data.gps.lon);
+
+  // overlay distance + walking time. Prefer the real route time/distance from
+  // OSRM (follows streets); fall back to straight-line estimate at 1.35 m/s.
+  const useRoute = S._routeDuration && S._routeDistance && (Date.now()-(S._lastRoute||0) < 12000);
+  const shownDist = useRoute ? S._routeDistance : dist;
+  const distTxt = shownDist<1000?Math.round(shownDist)+' m':(shownDist/1000).toFixed(1)+' km';
+  const walkSec = useRoute ? S._routeDuration : (dist / 1.35);
+  const walkMin = Math.max(1, Math.round(walkSec/60));
+  const timeTxt = '~'+walkMin+' min a pie';
+  document.getElementById('overlayDist').textContent=distTxt;
+
+  // Bearing from you to the car (geographic), then make it RELATIVE to where
+  // the phone is pointing by subtracting the phone's compass heading.
+  // If very close AND GPS is accurate enough to confirm it: show "look around" message
+  const tooClose = dist < 12 && acc < 25;
+  const noiseWarning = dist > 8 && acc >= 40; // far but bad GPS
+  const tooCloseEl = document.getElementById('tooCloseMsg');
+  if (tooClose) {
+    if (tooCloseEl) tooCloseEl.style.display='flex';
+    const oa = document.getElementById('overlayArrow'); if (oa) oa.style.opacity='0';
+    const fa = document.getElementById('fsArrow'); if (fa) fa.style.opacity='0';
+  } else {
+    if (tooCloseEl) tooCloseEl.style.display='none';
+    if (!noiseWarning) {
+      let geoBearing = getBearing(lat,lon,data.gps.lat,data.gps.lon);
+      let rel = geoBearing - (S._phoneHeading || 0);
+      rel = ((rel % 360) + 360) % 360;
+      if (S._lastBearing == null) S._lastBearing = rel;
+      let diff = ((rel - S._lastBearing + 540) % 360) - 180;
+      S._lastBearing = (S._lastBearing + diff * 0.5 + 360) % 360;
+      const rot = `rotate(${S._lastBearing}deg)`;
+      const oa = document.getElementById('overlayArrow'); if (oa){ oa.style.transform=rot; oa.style.opacity='1'; }
+      const fa = document.getElementById('fsArrow'); if (fa){ fa.style.transform=rot; fa.style.opacity='1'; }
+    }
+  }
+
+  // distance in fullscreen + walking time + accuracy hint
+  const fd = document.getElementById('fsDist'); if (fd) fd.textContent = distTxt;
+  const ft = document.getElementById('fsWalkTime'); if (ft) ft.textContent = dist < 25 ? 'Casi llegas' : timeTxt;
+  const fa2 = document.getElementById('fsAccuracy');
+  if (fa2) {
+    if (acc <= 12) fa2.textContent = 'GPS preciso · ±'+Math.round(acc)+' m';
+    else if (acc <= 30) fa2.textContent = 'GPS medio · ±'+Math.round(acc)+' m';
+    else fa2.textContent = 'GPS impreciso · ±'+Math.round(acc)+' m · busca cielo abierto';
+    fa2.style.color = acc<=12 ? 'var(--green2)' : acc<=30 ? 'var(--text2)' : 'var(--red2)';
+  }
+
+  // proximity alert (<20 m)
+  const flash=document.getElementById('proximityFlash');
+  if (dist < 20) {
+    flash.classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([200,100,200]);
+    // Audio alert — works even at low volume, iOS and Android
+    if (!S._lastBeep || Date.now()-S._lastBeep > 3000) {
+      S._lastBeep = Date.now();
+      playProximitySound();
+    }
+  }
+  else flash.classList.remove('show');
+
+  if (S.mapBuscar) {
+    if (!S.buscarYouMarker) {
+      S.buscarYouMarker=L.circleMarker(youLL,{radius:9,color:'#fff',fillColor:'#2d7dff',fillOpacity:1,weight:3}).addTo(S.mapBuscar);
+    } else S.buscarYouMarker.setLatLng(youLL);
+
+    // Route recalculation logic (like Google "recalculando"):
+    // - recalc if no route yet
+    // - recalc every 6s
+    // - recalc IMMEDIATELY if you've strayed >25m from the current route line
+    let needRecalc = !S._lastRoute || (Date.now()-S._lastRoute > 6000);
+    if (!needRecalc && S._routeCoords && S._routeCoords.length) {
+      const offBy = distanceToPolyline(sLat, sLon, S._routeCoords);
+      if (offBy > 25) { needRecalc = true; if (!S._rerouting) { showToast('Recalculando ruta…'); S._rerouting=true; } }
+    }
+    if (needRecalc) {
+      S._lastRoute = Date.now();
+      fetchWalkingRoute(youLL, carLL);
+    } else if (S.buscarLine) {
+      const lls = S.buscarLine.getLatLngs();
+      if (lls.length) { lls[0] = L.latLng(youLL); S.buscarLine.setLatLngs(lls); }
+    } else {
+      S.buscarLine = L.polyline([youLL,carLL],{color:'#c41850',weight:4,opacity:0.85}).addTo(S.mapBuscar);
+    }
+
+    const fsOpen = document.getElementById('searchFs').classList.contains('show');
+    if (fsOpen) {
+      // NAVIGATION MODE: YOU always centred, smooth pan, preserve user zoom
+      S.mapBuscar.panTo(youLL, {animate:true, duration:0.3});
+      // Auto-zoom by proximity only when far away or first fix
+      if (!S._lastFit || Date.now()-S._lastFit > 4000) {
+        S._lastFit = Date.now();
+        let z = dist<25?19:dist<60?18:dist<150?17:dist<400?16:null;
+        if (z && Math.abs(S.mapBuscar.getZoom()-z) > 1) {
+          S.mapBuscar.setZoom(z, {animate:true});
+        }
+      }
+      applyMapRotation();
+    } else {
+      // Small map: keep YOU centred too when tracking
+      if (S.tracking) S.mapBuscar.panTo(youLL, {animate:true, duration:0.5});
+    }
+  }
+}
+
+function updateDirection() {
+  const data=loadData(); if (!data) return;
+  navigator.geolocation?.getCurrentPosition(pos => onPosUpdate(pos),
+    null, { enableHighAccuracy:true, timeout:4000, maximumAge:0 });
+}
+
+// ── PHOTO MODAL ───────────────────────────────────────────
+function openPhotoModal() {
+  const data=loadData(); if (!data?.photo) return;
+  document.getElementById('photoModalImg').src=data.photo;
+  document.getElementById('photoModal').classList.add('show');
+  resetZoom();
+}
+function closePhotoModal() { document.getElementById('photoModal').classList.remove('show'); }
+
+// ── PINCH ZOOM + PAN ──────────────────────────────────────
+const Z = { scale:1, tx:0, ty:0, startDist:0, startScale:1, lastX:0, lastY:0, panning:false };
+function applyZoom() {
+  const img=document.getElementById('photoModalImg');
+  if (img) img.style.transform=`translate(${Z.tx}px,${Z.ty}px) scale(${Z.scale})`;
+}
+function resetZoom() { Z.scale=1; Z.tx=0; Z.ty=0; applyZoom(); }
+
+(function initZoom(){
+  const wrap=document.getElementById('photoZoomWrap');
+  if(!wrap) return;
+  wrap.addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      Z.startDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      Z.startScale=Z.scale;
+    } else if(e.touches.length===1 && Z.scale>1){
+      Z.panning=true; Z.lastX=e.touches[0].clientX; Z.lastY=e.touches[0].clientY;
+    }
+  },{passive:false});
+  wrap.addEventListener('touchmove', e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      Z.scale=Math.min(8, Math.max(1, Z.startScale*(d/Z.startDist)));
+      applyZoom();
+    } else if(Z.panning && e.touches.length===1){
+      e.preventDefault();
+      Z.tx+=e.touches[0].clientX-Z.lastX; Z.ty+=e.touches[0].clientY-Z.lastY;
+      Z.lastX=e.touches[0].clientX; Z.lastY=e.touches[0].clientY;
+      applyZoom();
+    }
+  },{passive:false});
+  wrap.addEventListener('touchend', e=>{ if(e.touches.length===0) Z.panning=false; });
+  let lastTap=0;
+  wrap.addEventListener('click', ()=>{ const n=Date.now(); if(n-lastTap<300) resetZoom(); lastTap=n; });
+})();
+
+// ── UTILS ─────────────────────────────────────────────────
+function haversine(la1,lo1,la2,lo2){const R=6371000,dl=(la2-la1)*Math.PI/180,dl2=(lo2-lo1)*Math.PI/180,a=Math.sin(dl/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl2/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function getBearing(la1,lo1,la2,lo2){const dl=(lo2-lo1)*Math.PI/180,y=Math.sin(dl)*Math.cos(la2*Math.PI/180),x=Math.cos(la1*Math.PI/180)*Math.sin(la2*Math.PI/180)-Math.sin(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.cos(dl);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
+
+// ── GIST CLOUD SYNC ───────────────────────────────────────
+// Stores place photos (and metadata) in a private GitHub Gist so the
+// ~2 users share them. Requires a GitHub token + gist id, saved locally.
+const CLOUD = {
+  get token(){ return store.get('buscauto_gh_token') || ''; },
+  set token(v){ store.set('buscauto_gh_token', v); },
+  get gistId(){ return store.get('buscauto_gist_id') || ''; },
+  set gistId(v){ store.set('buscauto_gist_id', v); },
+  get enabled(){ return !!(this.token && this.gistId); }
+};
+
+async function cloudPatchGist(files) {
+  if (!CLOUD.enabled) return false;
+  try {
+    const r = await fetch('https://api.github.com/gists/' + CLOUD.gistId, {
+      method:'PATCH',
+      headers:{ 'Authorization':'Bearer '+CLOUD.token, 'Accept':'application/vnd.github+json' },
+      body: JSON.stringify({ files })
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+// Upload one place's photo + metadata to the gist (filename = place id)
+async function uploadPhotoToCloud(id, photoDataUri) {
+  if (!CLOUD.enabled) return;
+  const data = loadHistory().find(c=>c.id===id);
+  if (!data) return;
+  const payload = { id:data.id, ts:data.ts, placeName:data.placeName||'', placeRadius:data.placeRadius||40, radiusShape:data.radiusShape||'circle', radiusAngle:data.radiusAngle||0, gps:data.gps||null, photo:photoDataUri||data.photo||null };
+  const ok = await cloudPatchGist({ [id + '.json']: { content: JSON.stringify(payload) } });
+  showToast(ok ? 'Sincronizado en la nube' : 'No se pudo sincronizar');
+}
+
+// Pull all places from the gist and merge into local history
+async function syncFromCloud() {
+  if (!CLOUD.enabled) { showToast('Configura el token y gist primero'); return; }
+  try {
+    const r = await fetch('https://api.github.com/gists/' + CLOUD.gistId, {
+      headers:{ 'Authorization':'Bearer '+CLOUD.token, 'Accept':'application/vnd.github+json' }
+    });
+    if (!r.ok) { showToast('Error al leer la nube'); return; }
+    const gist = await r.json();
+    let hist = loadHistory();
+    let added = 0;
+    for (const fname in gist.files) {
+      if (!fname.endsWith('.json')) continue;
+      try {
+        const remote = JSON.parse(gist.files[fname].content);
+        const idx = hist.findIndex(c => c.id === remote.id);
+        if (idx >= 0) hist[idx] = { ...hist[idx], ...remote };
+        else { hist.push(remote); added++; }
+      } catch {}
+    }
+    saveHistory(hist);
+    checkSavedPill();
+    if (document.getElementById('sec-ajustes')?.classList.contains('active')) loadAjustes();
+    if (document.getElementById('sec-guardar')?.classList.contains('active')) loadEstacionar();
+    if (document.getElementById('sec-buscar')?.classList.contains('active')) loadFindTab();
+    showToast('Nube sincronizada · '+added+' nuevos');
+  } catch { showToast('Error de red al sincronizar'); }
+}
+
+function cloudSyncCurrentDebounced() {
+  if (!CLOUD.enabled) return;
+  clearTimeout(S._cloudT);
+  S._cloudT = setTimeout(() => { const d=loadData(); if(d) uploadPhotoToCloud(d.id, d.photo); }, 1500);
+}
+function cloudSyncEditingDebounced() {
+  if (!CLOUD.enabled) return;
+  clearTimeout(S._cloudTE);
+  S._cloudTE = setTimeout(() => { const d=loadEditing(); if(d) uploadPhotoToCloud(d.id, d.photo); }, 1500);
+}
+
+// Force-update: clear all caches, unregister SW, hard reload
+async function forceUpdateApp() {
+  showToast('Actualizando…');
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch {}
+  // bypass cache with a fresh query string
+  const url = location.pathname + '?v=' + Date.now();
+  location.replace(url);
+}
+
+function openCloudSettings() {
+  const token = prompt('GitHub token (con permiso de gist):', CLOUD.token);
+  if (token === null) return;
+  CLOUD.token = token.trim();
+  const gid = prompt('ID del Gist (créalo privado en gist.github.com):', CLOUD.gistId);
+  if (gid === null) return;
+  CLOUD.gistId = gid.trim();
+  showToast(CLOUD.enabled ? 'Nube configurada' : 'Faltan datos');
+  if (CLOUD.enabled) syncFromCloud();
+}
+
+function checkSavedPill() { document.getElementById('savedPill').classList.toggle('show', !!loadData()); }
+
+function clearSaved() {
+  if (!confirm('¿Borrar este lugar guardado?')) return;
+  if (S.tracking) stopTracking();
+  const id=currentId();
+  let hist=loadHistory().filter(c=>c.id!==id);
+  saveHistory(hist);
+  if (hist.length) setCurrentId(hist[hist.length-1].id);
+  else { store.del(CUR_KEY); store.del(DB_KEY); }
+  // reset map
+  if (S.mapBuscar) { S.mapBuscar.remove(); S.mapBuscar=null; S.buscarCarMarker=null; S.buscarYouMarker=null; S.buscarLine=null; S.radiusLayer=null; S._pinHandlerSet=false; }
+  checkSavedPill();
+  loadFindTab();
+  showToast('Lugar borrado');
+}
+
+let _tt;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+window.addEventListener('resize', () => {
+  if(S.mapTrayecto) S.mapTrayecto.invalidateSize();
+  if(S.mapBuscar) S.mapBuscar.invalidateSize();
+});
+</script>
+</body>
+</html>
